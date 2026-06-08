@@ -1,19 +1,31 @@
-import React, { useState, useEffect, useRef } from 'react';
-import {
-  View,
-  Text,
-  StyleSheet,
-  TouchableOpacity,
-  Alert,
-  ActivityIndicator,
-  TextInput,
-} from 'react-native';
-import MapView, { Marker } from 'react-native-maps';
+import Constants from 'expo-constants'; // ✅ for environment check
 import * as Location from 'expo-location';
+import { useEffect, useRef, useState } from 'react';
+import {
+  ActivityIndicator,
+  Alert,
+  StyleSheet,
+  Text,
+  TextInput,
+  TouchableOpacity,
+  View,
+} from 'react-native';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
 import AppButton from '../components/AppButton';
 import api from '../services/api';
-import { Colors as GlobalColors, Fonts, Radius, Shadows } from '../theme';
+
+// ---------- Only load react-native-maps outside Expo Go ----------
+let MapView = null;
+let Marker = null;
+if (Constants.appOwnership !== 'expo') {
+  try {
+    const maps = require('react-native-maps');
+    MapView = maps.default || maps;
+    Marker = maps.Marker || (MapView && MapView.Marker);
+  } catch (e) {
+    console.warn('react-native-maps not available:', e.message);
+  }
+}
 
 // Warm orange palette
 const Colors = {
@@ -40,7 +52,6 @@ export default function OrderMapPicker({ navigation, route }) {
   const [loading, setLoading] = useState(false);
   const [locating, setLocating] = useState(true);
   const mapRef = useRef(null);
-  const markerRef = useRef(null);
 
   // Get current location
   const getCurrentLocation = async () => {
@@ -79,7 +90,11 @@ export default function OrderMapPicker({ navigation, route }) {
   };
 
   useEffect(() => {
-    getCurrentLocation();
+    if (MapView) {
+      getCurrentLocation();
+    } else {
+      setLocating(false);   // no map, nothing to locate
+    }
   }, []);
 
   const handleMarkerDragEnd = (e) => {
@@ -88,7 +103,8 @@ export default function OrderMapPicker({ navigation, route }) {
   };
 
   const handleConfirm = async () => {
-    if (!location) {
+    // In Expo Go (no map), we only require a landmark (optional address is still used)
+    if (!location && MapView) {
       Alert.alert('No Location', 'Please drag the red pin to your delivery location.');
       return;
     }
@@ -98,14 +114,17 @@ export default function OrderMapPicker({ navigation, route }) {
       await apiFunc({
         items: cartItems,
         deliveryAddress: {
-          lat: location.latitude,
-          lng: location.longitude,
+          lat: location?.latitude || 0,
+          lng: location?.longitude || 0,
           landmark: landmark.trim(),
         },
         payment: { method: 'cod' },
       });
 
-      await api.put('/auth/location', { lat: location.latitude, lng: location.longitude });
+      // Update customer's current location (only if we have real coordinates)
+      if (location) {
+        await api.put('/auth/location', { lat: location.latitude, lng: location.longitude });
+      }
 
       Alert.alert('Order Placed', 'Your order has been placed successfully!', [
         { text: 'OK', onPress: () => navigation.navigate('Orders') },
@@ -120,43 +139,56 @@ export default function OrderMapPicker({ navigation, route }) {
 
   return (
     <View style={styles.container}>
-      <MapView
-        ref={mapRef}
-        style={StyleSheet.absoluteFillObject}
-        initialRegion={region}
-        showsUserLocation={false}
-        toolbarEnabled={false}
-      >
-        {location && (
-          <Marker
-            coordinate={location}
-            draggable
-            onDragEnd={handleMarkerDragEnd}
-            pinColor="red"           // <-- clean red pin, easy to drag
-          />
-        )}
-      </MapView>
+      {/* Map or Placeholder */}
+      {MapView ? (
+        <MapView
+          ref={mapRef}
+          style={StyleSheet.absoluteFillObject}
+          initialRegion={region}
+          showsUserLocation={false}
+          toolbarEnabled={false}
+        >
+          {location && (
+            <Marker
+              coordinate={location}
+              draggable
+              onDragEnd={handleMarkerDragEnd}
+              pinColor="red"
+            />
+          )}
+        </MapView>
+      ) : (
+        <View style={styles.mapPlaceholder}>
+          <Text style={styles.placeholderIcon}>📍</Text>
+          <Text style={styles.placeholderTitle}>Map not available in Expo Go</Text>
+          <Text style={styles.placeholderSub}>
+            You can still enter a landmark below and confirm your order.
+          </Text>
+        </View>
+      )}
 
-      {/* Center hint (if no location yet) */}
-      {!location && !locating && (
+      {/* Center hint (only when map is present and no location yet) */}
+      {MapView && !location && !locating && (
         <View style={styles.centerHint}>
           <Text style={styles.centerHintText}>📍 Drag the map to set your delivery location</Text>
         </View>
       )}
 
-      {/* Re‑center GPS button */}
-      <TouchableOpacity
-        style={[styles.locateButton, { top: insets.top + 20 }]}
-        onPress={getCurrentLocation}
-        disabled={locating}
-        activeOpacity={0.8}
-      >
-        {locating ? (
-          <ActivityIndicator size="small" color={Colors.primary} />
-        ) : (
-          <Text style={styles.locateButtonText}>📍 My Location</Text>
-        )}
-      </TouchableOpacity>
+      {/* Re‑center GPS button (only when map is present) */}
+      {MapView && (
+        <TouchableOpacity
+          style={[styles.locateButton, { top: insets.top + 20 }]}
+          onPress={getCurrentLocation}
+          disabled={locating}
+          activeOpacity={0.8}
+        >
+          {locating ? (
+            <ActivityIndicator size="small" color={Colors.primary} />
+          ) : (
+            <Text style={styles.locateButtonText}>📍 My Location</Text>
+          )}
+        </TouchableOpacity>
+      )}
 
       {/* Back button */}
       <TouchableOpacity
@@ -170,7 +202,9 @@ export default function OrderMapPicker({ navigation, route }) {
       {/* Bottom card */}
       <View style={[styles.bottomCard, { paddingBottom: insets.bottom + 16 }]}>
         <Text style={styles.instructionText}>
-          Drag the <Text style={{ fontWeight: '800', color: Colors.primary }}>red pin</Text> to your exact delivery spot
+          {MapView
+            ? 'Drag the red pin to your exact delivery spot'
+            : 'Enter a landmark for your delivery address'}
         </Text>
         <TextInput
           style={styles.landmarkInput}
@@ -191,6 +225,17 @@ export default function OrderMapPicker({ navigation, route }) {
 
 const styles = StyleSheet.create({
   container: { flex: 1, backgroundColor: '#FFF6F0' },
+  // Map placeholder (Expo Go)
+  mapPlaceholder: {
+    flex: 1,
+    backgroundColor: '#FFF0E5',
+    justifyContent: 'center',
+    alignItems: 'center',
+    paddingHorizontal: 30,
+  },
+  placeholderIcon: { fontSize: 60, marginBottom: 16, opacity: 0.6 },
+  placeholderTitle: { fontSize: 18, fontWeight: '700', color: Colors.orangeText, marginBottom: 8 },
+  placeholderSub: { fontSize: 14, color: Colors.orangeText, textAlign: 'center', lineHeight: 20 },
   centerHint: {
     position: 'absolute',
     top: '50%',
