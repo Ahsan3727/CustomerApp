@@ -1,12 +1,12 @@
-﻿import axios from 'axios';
-import AsyncStorage from '@react-native-async-storage/async-storage';
+﻿import AsyncStorage from '@react-native-async-storage/async-storage';
+import axios from 'axios';
 import { Platform } from 'react-native';
 
 const getBaseUrl = () => {
   if (Platform.OS === 'android') {
-    return 'https://groxo.onrender.com/api';
+    return 'https://groxo-0zy1.onrender.com/api';
   }
-  return 'https://groxo.onrender.com/api';
+  return 'https://groxo-0zy1.onrender.com/api';
 };
 
 const BASE_URL = getBaseUrl();
