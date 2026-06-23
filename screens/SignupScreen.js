@@ -1,4 +1,4 @@
-﻿import Constants from 'expo-constants'; // ✅ for environment check
+﻿import Constants from 'expo-constants';
 import * as Location from 'expo-location';
 import { useRef, useState } from 'react';
 import {
@@ -12,6 +12,7 @@ import {
   TouchableOpacity,
   View,
 } from 'react-native';
+import { WebView } from 'react-native-webview';
 import AppButton from '../components/AppButton';
 import InputGroup from '../components/InputGroup';
 import { useAuth } from '../context/AuthContext';
@@ -42,7 +43,10 @@ const Colors = {
 export default function SignupScreen({ navigation }) {
   const { signup } = useAuth();
 
+  // Step control
   const [step, setStep] = useState(1);
+
+  // Personal details
   const [name, setName] = useState('');
   const [email, setEmail] = useState('');
   const [phone, setPhone] = useState('');
@@ -51,6 +55,7 @@ export default function SignupScreen({ navigation }) {
   const [showPassword, setShowPassword] = useState(false);
   const [showConfirmPassword, setShowConfirmPassword] = useState(false);
 
+  // Address & location
   const [street, setStreet] = useState('');
   const [city, setCity] = useState('');
   const [landmark, setLandmark] = useState('');
@@ -66,6 +71,80 @@ export default function SignupScreen({ navigation }) {
   const markerRef = useRef(null);
   const [signupLoading, setSignupLoading] = useState(false);
 
+  // WebView map ref
+  const webViewRef = useRef(null);
+
+  // ---------- HTML for the Leaflet map (used in Expo Go) ----------
+  const mapHTML = (lat, lng) => `
+    <!DOCTYPE html>
+    <html>
+    <head>
+      <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no">
+      <link rel="stylesheet" href="https://unpkg.com/leaflet@1.9.3/dist/leaflet.css" />
+      <script src="https://unpkg.com/leaflet@1.9.3/dist/leaflet.js"></script>
+      <style>
+        body { margin:0; padding:0; }
+        #map { width:100vw; height:100vh; }
+      </style>
+    </head>
+    <body>
+      <div id="map"></div>
+      <script>
+        const map = L.map('map', { zoomControl: true }).setView([${lat}, ${lng}], 15);
+        L.tileLayer('https://{s}.tile.openstreetmap.org/{z}/{x}/{y}.png', {
+          attribution: '&copy; OpenStreetMap'
+        }).addTo(map);
+
+        const marker = L.marker([${lat}, ${lng}], { draggable: true }).addTo(map);
+
+        marker.on('dragend', function(e) {
+          const pos = e.target.getLatLng();
+          window.ReactNativeWebView.postMessage(JSON.stringify({
+            type: 'markerDrag',
+            lat: pos.lat,
+            lng: pos.lng
+          }));
+        });
+
+        map.on('click', function(e) {
+          marker.setLatLng(e.latlng);
+          window.ReactNativeWebView.postMessage(JSON.stringify({
+            type: 'markerDrag',
+            lat: e.latlng.lat,
+            lng: e.latlng.lng
+          }));
+        });
+
+        // Expose function for updating location from RN
+        window.updateLocation = function(lat, lng) {
+          marker.setLatLng([lat, lng]);
+          map.setView([lat, lng], 15);
+        };
+
+        // Send initial position
+        window.ReactNativeWebView.postMessage(JSON.stringify({
+          type: 'markerDrag',
+          lat: marker.getLatLng().lat,
+          lng: marker.getLatLng().lng
+        }));
+      </script>
+    </body>
+    </html>
+  `;
+
+  // Receive messages from WebView
+  const handleWebViewMessage = (event) => {
+    try {
+      const data = JSON.parse(event.nativeEvent.data);
+      if (data.type === 'markerDrag') {
+        setLocation({ latitude: data.lat, longitude: data.lng });
+      }
+    } catch (e) {
+      // ignore
+    }
+  };
+
+  // ---------- Location handlers ----------
   const getCurrentLocation = async () => {
     setLoadingLocation(true);
     try {
@@ -83,12 +162,19 @@ export default function SignupScreen({ navigation }) {
         latitudeDelta: 0.005,
         longitudeDelta: 0.005,
       });
-      if (mapRef.current) {
+
+      // Animate native map or update WebView
+      if (MapView && mapRef.current) {
         mapRef.current.animateToRegion({
           ...newLoc,
           latitudeDelta: 0.005,
           longitudeDelta: 0.005,
         }, 1000);
+      } else if (webViewRef.current) {
+        webViewRef.current.injectJavaScript(`
+          window.updateLocation(${newLoc.latitude}, ${newLoc.longitude});
+          window.ReactNativeWebView.postMessage(JSON.stringify({type:'markerDrag', lat:${newLoc.latitude}, lng:${newLoc.longitude}}));
+        `);
       }
     } catch (error) {
       Alert.alert('Error', 'Could not fetch location.');
@@ -97,11 +183,13 @@ export default function SignupScreen({ navigation }) {
     }
   };
 
+  // Native marker drag end
   const onMarkerDragEnd = (e) => {
     const { latitude, longitude } = e.nativeEvent.coordinate;
     setLocation({ latitude, longitude });
   };
 
+  // ---------- Step & signup handlers ----------
   const handleNext = () => {
     if (step === 1) {
       if (!name.trim() || !phone.trim()) {
@@ -160,12 +248,14 @@ export default function SignupScreen({ navigation }) {
         </View>
 
         <View style={styles.card}>
+          {/* Step indicator */}
           <View style={styles.stepIndicator}>
             <View style={[styles.stepDot, step === 1 && styles.activeStepDot]} />
             <View style={styles.stepLine} />
             <View style={[styles.stepDot, step === 2 && styles.activeStepDot]} />
           </View>
 
+          {/* Step 1 – Personal details */}
           {step === 1 && (
             <>
               <Text style={styles.sectionTitle}>Personal Details</Text>
@@ -192,11 +282,12 @@ export default function SignupScreen({ navigation }) {
             </>
           )}
 
+          {/* Step 2 – Address & location */}
           {step === 2 && (
             <>
               <Text style={styles.sectionTitle}>Delivery Address</Text>
 
-              {/* Map – only if native module is available */}
+              {/* Map – native if available, otherwise WebView (Expo Go) */}
               {MapView ? (
                 <View style={styles.mapContainer}>
                   <MapView
@@ -223,11 +314,27 @@ export default function SignupScreen({ navigation }) {
                   </TouchableOpacity>
                 </View>
               ) : (
-                <View style={styles.mapPlaceholder}>
-                  <Text style={{ color: '#8B4513', fontWeight: '600' }}>📍 Map unavailable in Expo Go</Text>
-                  <Text style={{ fontSize: 12, color: '#8B4513', marginTop: 4 }}>
-                    You can still enter your address below
-                  </Text>
+                <View style={styles.mapContainer}>
+                  <WebView
+                    ref={webViewRef}
+                    source={{ html: mapHTML(mapRegion.latitude, mapRegion.longitude) }}
+                    style={styles.map}
+                    onMessage={handleWebViewMessage}
+                    javaScriptEnabled={true}
+                    domStorageEnabled={true}
+                    startInLoadingState={false}
+                  />
+                  <TouchableOpacity
+                    style={styles.locateButton}
+                    onPress={getCurrentLocation}
+                    disabled={loadingLocation}
+                  >
+                    {loadingLocation ? (
+                      <ActivityIndicator color="#FF7F2A" />
+                    ) : (
+                      <Text style={styles.locateButtonText}>📍 Use My Location</Text>
+                    )}
+                  </TouchableOpacity>
                 </View>
               )}
 
@@ -256,6 +363,7 @@ export default function SignupScreen({ navigation }) {
   );
 }
 
+// ---------- Styles ----------
 const styles = StyleSheet.create({
   container: { flex: 1, backgroundColor: Colors.bgBottom },
   scrollContent: { flexGrow: 1, paddingBottom: 40 },
@@ -288,10 +396,6 @@ const styles = StyleSheet.create({
     borderRadius: 20, shadowColor: '#000', shadowOpacity: 0.1, shadowRadius: 4, elevation: 2,
   },
   locateButtonText: { fontSize: 13, fontWeight: '600', color: Colors.orange500 },
-  mapPlaceholder: {
-    height: 200, backgroundColor: '#FFF0E5', borderRadius: 16,
-    justifyContent: 'center', alignItems: 'center', marginBottom: 12,
-  },
   mapHint: { textAlign: 'center', fontSize: 12, color: Colors.orangeText, marginBottom: 12 },
   buttonRow: { flexDirection: 'row', marginTop: 16 },
   footerText: { textAlign: 'center', fontSize: 14, color: Colors.orangeText, marginTop: 24 },

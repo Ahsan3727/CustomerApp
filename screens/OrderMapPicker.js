@@ -1,4 +1,4 @@
-import Constants from 'expo-constants'; // ✅ for environment check
+import Constants from 'expo-constants';
 import * as Location from 'expo-location';
 import { useEffect, useRef, useState } from 'react';
 import {
@@ -11,6 +11,7 @@ import {
   View,
 } from 'react-native';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
+import { WebView } from 'react-native-webview'; // ← added
 import AppButton from '../components/AppButton';
 import api from '../services/api';
 
@@ -37,6 +38,69 @@ const Colors = {
   heroBg: '#FF9F43',
 };
 
+// ---------- Leaflet map HTML (for Expo Go) ----------
+const mapHTML = (lat, lng) => `
+  <!DOCTYPE html>
+  <html>
+  <head>
+    <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no">
+    <link rel="stylesheet" href="https://unpkg.com/leaflet@1.9.3/dist/leaflet.css" />
+    <script src="https://unpkg.com/leaflet@1.9.3/dist/leaflet.js"></script>
+    <style>
+      body { margin:0; padding:0; }
+      #map { width:100vw; height:100vh; }
+    </style>
+  </head>
+  <body>
+    <div id="map"></div>
+    <script>
+      const map = L.map('map', { zoomControl: true }).setView([${lat}, ${lng}], 15);
+      L.tileLayer('https://{s}.tile.openstreetmap.org/{z}/{x}/{y}.png', {
+        attribution: '&copy; OpenStreetMap'
+      }).addTo(map);
+
+      const marker = L.marker([${lat}, ${lng}], { draggable: true }).addTo(map);
+
+      marker.on('dragend', function(e) {
+        const pos = e.target.getLatLng();
+        window.ReactNativeWebView.postMessage(JSON.stringify({
+          type: 'markerDrag',
+          lat: pos.lat,
+          lng: pos.lng
+        }));
+      });
+
+      map.on('click', function(e) {
+        marker.setLatLng(e.latlng);
+        window.ReactNativeWebView.postMessage(JSON.stringify({
+          type: 'markerDrag',
+          lat: e.latlng.lat,
+          lng: e.latlng.lng
+        }));
+      });
+
+      // Function called from React Native to update the location
+      window.updateLocation = function(lat, lng) {
+        marker.setLatLng([lat, lng]);
+        map.setView([lat, lng], 15);
+        window.ReactNativeWebView.postMessage(JSON.stringify({
+          type: 'markerDrag',
+          lat: lat,
+          lng: lng
+        }));
+      };
+
+      // Send initial position
+      window.ReactNativeWebView.postMessage(JSON.stringify({
+        type: 'markerDrag',
+        lat: marker.getLatLng().lat,
+        lng: marker.getLatLng().lng
+      }));
+    </script>
+  </body>
+  </html>
+`;
+
 export default function OrderMapPicker({ navigation, route }) {
   const { cartItems, apiFunc } = route.params;
   const insets = useSafeAreaInsets();
@@ -52,8 +116,9 @@ export default function OrderMapPicker({ navigation, route }) {
   const [loading, setLoading] = useState(false);
   const [locating, setLocating] = useState(true);
   const mapRef = useRef(null);
+  const webViewRef = useRef(null);          // ← added
 
-  // Get current location
+  // ---------- Get current location ----------
   const getCurrentLocation = async () => {
     setLocating(true);
     try {
@@ -71,7 +136,9 @@ export default function OrderMapPicker({ navigation, route }) {
         longitude: loc.coords.longitude,
       };
       setLocation(newLoc);
-      if (mapRef.current) {
+
+      // Native map animation
+      if (MapView && mapRef.current) {
         mapRef.current.animateToRegion(
           {
             latitude: newLoc.latitude,
@@ -81,6 +148,13 @@ export default function OrderMapPicker({ navigation, route }) {
           },
           800
         );
+      }
+
+      // WebView map – move marker via injected JS
+      if (webViewRef.current) {
+        webViewRef.current.injectJavaScript(`
+          window.updateLocation(${newLoc.latitude}, ${newLoc.longitude});
+        `);
       }
     } catch (error) {
       Alert.alert('Error', 'Could not fetch your location. Drag the pin manually.');
@@ -93,17 +167,30 @@ export default function OrderMapPicker({ navigation, route }) {
     if (MapView) {
       getCurrentLocation();
     } else {
-      setLocating(false);   // no map, nothing to locate
+      // WebView will load with initial map region and we can still get location later
+      setLocating(false);
     }
   }, []);
 
+  // ---------- Handlers ----------
   const handleMarkerDragEnd = (e) => {
     const { latitude, longitude } = e.nativeEvent.coordinate;
     setLocation({ latitude, longitude });
   };
 
+  const handleWebViewMessage = (event) => {
+    try {
+      const data = JSON.parse(event.nativeEvent.data);
+      if (data.type === 'markerDrag') {
+        setLocation({ latitude: data.lat, longitude: data.lng });
+      }
+    } catch (e) {
+      // ignore malformed messages
+    }
+  };
+
   const handleConfirm = async () => {
-    // In Expo Go (no map), we only require a landmark (optional address is still used)
+    // Allow order even without location (landmark only) but warn if map is available
     if (!location && MapView) {
       Alert.alert('No Location', 'Please drag the red pin to your delivery location.');
       return;
@@ -121,7 +208,7 @@ export default function OrderMapPicker({ navigation, route }) {
         payment: { method: 'cod' },
       });
 
-      // Update customer's current location (only if we have real coordinates)
+      // Update customer's current location
       if (location) {
         await api.put('/auth/location', { lat: location.latitude, lng: location.longitude });
       }
@@ -137,9 +224,10 @@ export default function OrderMapPicker({ navigation, route }) {
     }
   };
 
+  // ---------- Render ----------
   return (
     <View style={styles.container}>
-      {/* Map or Placeholder */}
+      {/* Map – native if available, otherwise WebView */}
       {MapView ? (
         <MapView
           ref={mapRef}
@@ -158,37 +246,39 @@ export default function OrderMapPicker({ navigation, route }) {
           )}
         </MapView>
       ) : (
-        <View style={styles.mapPlaceholder}>
-          <Text style={styles.placeholderIcon}>📍</Text>
-          <Text style={styles.placeholderTitle}>Map not available in Expo Go</Text>
-          <Text style={styles.placeholderSub}>
-            You can still enter a landmark below and confirm your order.
-          </Text>
+        <View style={StyleSheet.absoluteFillObject}>
+          <WebView
+            ref={webViewRef}
+            source={{ html: mapHTML(region.latitude, region.longitude) }}
+            style={{ flex: 1 }}
+            onMessage={handleWebViewMessage}
+            javaScriptEnabled={true}
+            domStorageEnabled={true}
+            startInLoadingState={false}
+          />
         </View>
       )}
 
       {/* Center hint (only when map is present and no location yet) */}
-      {MapView && !location && !locating && (
+      {!location && !locating && (
         <View style={styles.centerHint}>
-          <Text style={styles.centerHintText}>📍 Drag the map to set your delivery location</Text>
+          <Text style={styles.centerHintText}>📍 Drag the pin to set your delivery location</Text>
         </View>
       )}
 
-      {/* Re‑center GPS button (only when map is present) */}
-      {MapView && (
-        <TouchableOpacity
-          style={[styles.locateButton, { top: insets.top + 20 }]}
-          onPress={getCurrentLocation}
-          disabled={locating}
-          activeOpacity={0.8}
-        >
-          {locating ? (
-            <ActivityIndicator size="small" color={Colors.primary} />
-          ) : (
-            <Text style={styles.locateButtonText}>📍 My Location</Text>
-          )}
-        </TouchableOpacity>
-      )}
+      {/* Re‑center GPS button (visible for both map types) */}
+      <TouchableOpacity
+        style={[styles.locateButton, { top: insets.top + 20 }]}
+        onPress={getCurrentLocation}
+        disabled={locating}
+        activeOpacity={0.8}
+      >
+        {locating ? (
+          <ActivityIndicator size="small" color={Colors.primary} />
+        ) : (
+          <Text style={styles.locateButtonText}>📍 My Location</Text>
+        )}
+      </TouchableOpacity>
 
       {/* Back button */}
       <TouchableOpacity
@@ -204,7 +294,7 @@ export default function OrderMapPicker({ navigation, route }) {
         <Text style={styles.instructionText}>
           {MapView
             ? 'Drag the red pin to your exact delivery spot'
-            : 'Enter a landmark for your delivery address'}
+            : 'Drag the pin on the map to your delivery spot'}
         </Text>
         <TextInput
           style={styles.landmarkInput}
@@ -223,19 +313,9 @@ export default function OrderMapPicker({ navigation, route }) {
   );
 }
 
+// ---------- Styles (unchanged except mapPlaceholder removed) ----------
 const styles = StyleSheet.create({
   container: { flex: 1, backgroundColor: '#FFF6F0' },
-  // Map placeholder (Expo Go)
-  mapPlaceholder: {
-    flex: 1,
-    backgroundColor: '#FFF0E5',
-    justifyContent: 'center',
-    alignItems: 'center',
-    paddingHorizontal: 30,
-  },
-  placeholderIcon: { fontSize: 60, marginBottom: 16, opacity: 0.6 },
-  placeholderTitle: { fontSize: 18, fontWeight: '700', color: Colors.orangeText, marginBottom: 8 },
-  placeholderSub: { fontSize: 14, color: Colors.orangeText, textAlign: 'center', lineHeight: 20 },
   centerHint: {
     position: 'absolute',
     top: '50%',

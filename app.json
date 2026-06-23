@@ -15,7 +15,21 @@
     "extra": {
       "eas": {
         "projectId": "a6e660b8-556f-4915-a889-6a6157e659ed"
+      },
+      "updates": {
+        "url": "https://u.expo.dev/a6e660b8-556f-4915-a889-6a6157e659ed"
+      },
+      "runtimeVersion": {
+        "policy": "appVersion"
       }
-    }
+    },
+    "owner": "ahsan3727",
+    "runtimeVersion": {
+      "policy": "appVersion"
+    },
+    "updates": {
+      "url": "https://u.expo.dev/a6e660b8-556f-4915-a889-6a6157e659ed"
+    },
+    "ios": {}
   }
 }
