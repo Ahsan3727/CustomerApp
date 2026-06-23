@@ -17,20 +17,10 @@ import Card from '../components/Card';
 import api from '../services/api';
 import { Fonts, Radius, Shadows } from '../theme';
 
-// ---------- Native maps (only outside Expo Go) ----------
-let MapView = null;
-let Marker = null;
-let Polyline = null;
-if (Constants.appOwnership !== 'expo') {
-  try {
-    const maps = require('react-native-maps');
-    MapView = maps.default || maps;
-    Marker = maps.Marker || (MapView && MapView.Marker);
-    Polyline = maps.Polyline || (MapView && MapView.Polyline);
-  } catch (e) {
-    console.warn('react-native-maps not available:', e.message);
-  }
-}
+// Always use WebView map – no native maps needed
+const MapView = null;
+const Marker = null;
+const Polyline = null;
 
 const Colors = {
   primary: '#FF7F2A',
@@ -215,54 +205,17 @@ export default function TrackOrderScreen({ navigation, route }) {
         <Text style={styles.arrivalText}>{order?.status === 'delivered' ? 'Delivered' : 'Arriving soon'}</Text>
       </View>
 
-      {/* ---- Map (always visible) ---- */}
+      {/* ---- Map (always WebView) ---- */}
       <View style={styles.realMapContainer}>
-        {MapView ? (
-          <MapView
-            style={styles.realMap}
-            initialRegion={{
-              latitude: mapLat,
-              longitude: mapLng,
-              latitudeDelta: 0.01,
-              longitudeDelta: 0.01,
-            }}
-            showsUserLocation={false}
-            toolbarEnabled={false}
-          >
-            {riderLocation && (
-              <Marker coordinate={riderLocation} title="Rider">
-                <View style={styles.riderMarkerBox}>
-                  <Text style={styles.riderMarkerIcon}>🛵</Text>
-                </View>
-              </Marker>
-            )}
-            {dropoffLat && dropoffLng && (
-              <Marker coordinate={{ latitude: dropoffLat, longitude: dropoffLng }} title="You">
-                <View style={styles.dropoffMarkerBox}>
-                  <Text style={styles.dropoffMarkerIcon}>🏠</Text>
-                </View>
-              </Marker>
-            )}
-            {riderLocation && dropoffLat && dropoffLng && (
-              <Polyline
-                coordinates={[riderLocation, { latitude: dropoffLat, longitude: dropoffLng }]}
-                strokeColor="#FF7F2A"
-                strokeWidth={2}
-                lineDashPattern={[6, 4]}
-              />
-            )}
-          </MapView>
-        ) : (
-          <WebView
-            ref={webViewRef}
-            source={{ html: buildMapHTML(mapLat, mapLng, dropoffLat, dropoffLng) }}
-            style={styles.realMap}
-            javaScriptEnabled={true}
-            domStorageEnabled={true}
-            startInLoadingState={false}
-            scrollEnabled={false}
-          />
-        )}
+        <WebView
+          ref={webViewRef}
+          source={{ html: buildMapHTML(mapLat, mapLng, dropoffLat, dropoffLng) }}
+          style={styles.realMap}
+          javaScriptEnabled={true}
+          domStorageEnabled={true}
+          startInLoadingState={false}
+          scrollEnabled={false}
+        />
       </View>
 
       <View style={styles.mapLabels}>
@@ -324,7 +277,7 @@ export default function TrackOrderScreen({ navigation, route }) {
   );
 }
 
-// ---------- Styles (ultra‑small native markers) ----------
+// ---------- Styles (same as before) ----------
 const styles = StyleSheet.create({
   container: { flex: 1, backgroundColor: '#FFF6F0' },
   scrollContent: { paddingBottom: 40 },
@@ -368,7 +321,6 @@ const styles = StyleSheet.create({
   totalLabel: { fontWeight: '600', color: Colors.darkest },
   totalValue: { fontWeight: '700', fontSize: 16, color: Colors.primary },
   confirmButton: { marginHorizontal: 20, marginBottom: 12 },
-  // Ultra‑small native markers
   riderMarkerBox: {
     alignItems: 'center', justifyContent: 'center',
     width: 28, height: 28,

@@ -1,5 +1,4 @@
-﻿import Constants from 'expo-constants';
-import * as Location from 'expo-location';
+﻿import * as Location from 'expo-location';
 import { useRef, useState } from 'react';
 import {
   ActivityIndicator,
@@ -17,14 +16,9 @@ import AppButton from '../components/AppButton';
 import InputGroup from '../components/InputGroup';
 import { useAuth } from '../context/AuthContext';
 
-// ---------- Only load react-native-maps outside Expo Go ----------
-let MapView = null;
-let Marker = null;
-if (Constants.appOwnership !== 'expo') {
-  const maps = require('react-native-maps');
-  MapView = maps.default;
-  Marker = maps.Marker;
-}
+// Always use WebView map – no native maps needed
+const MapView = null;
+const Marker = null;
 
 // Warm orange palette (same as login)
 const Colors = {
@@ -74,7 +68,7 @@ export default function SignupScreen({ navigation }) {
   // WebView map ref
   const webViewRef = useRef(null);
 
-  // ---------- HTML for the Leaflet map (used in Expo Go) ----------
+  // ---------- HTML for the Leaflet map ----------
   const mapHTML = (lat, lng) => `
     <!DOCTYPE html>
     <html>
@@ -163,14 +157,8 @@ export default function SignupScreen({ navigation }) {
         longitudeDelta: 0.005,
       });
 
-      // Animate native map or update WebView
-      if (MapView && mapRef.current) {
-        mapRef.current.animateToRegion({
-          ...newLoc,
-          latitudeDelta: 0.005,
-          longitudeDelta: 0.005,
-        }, 1000);
-      } else if (webViewRef.current) {
+      // Update WebView
+      if (webViewRef.current) {
         webViewRef.current.injectJavaScript(`
           window.updateLocation(${newLoc.latitude}, ${newLoc.longitude});
           window.ReactNativeWebView.postMessage(JSON.stringify({type:'markerDrag', lat:${newLoc.latitude}, lng:${newLoc.longitude}}));
@@ -183,7 +171,7 @@ export default function SignupScreen({ navigation }) {
     }
   };
 
-  // Native marker drag end
+  // Native marker drag end (not used anymore, kept for compatibility)
   const onMarkerDragEnd = (e) => {
     const { latitude, longitude } = e.nativeEvent.coordinate;
     setLocation({ latitude, longitude });
@@ -287,56 +275,29 @@ export default function SignupScreen({ navigation }) {
             <>
               <Text style={styles.sectionTitle}>Delivery Address</Text>
 
-              {/* Map – native if available, otherwise WebView (Expo Go) */}
-              {MapView ? (
-                <View style={styles.mapContainer}>
-                  <MapView
-                    ref={mapRef}
-                    style={styles.map}
-                    initialRegion={mapRegion}
-                    showsUserLocation={false}
-                    toolbarEnabled={false}
-                  >
-                    {location && (
-                      <Marker coordinate={location} draggable onDragEnd={onMarkerDragEnd} ref={markerRef} />
-                    )}
-                  </MapView>
-                  <TouchableOpacity
-                    style={styles.locateButton}
-                    onPress={getCurrentLocation}
-                    disabled={loadingLocation}
-                  >
-                    {loadingLocation ? (
-                      <ActivityIndicator color="#FF7F2A" />
-                    ) : (
-                      <Text style={styles.locateButtonText}>📍 Use My Location</Text>
-                    )}
-                  </TouchableOpacity>
-                </View>
-              ) : (
-                <View style={styles.mapContainer}>
-                  <WebView
-                    ref={webViewRef}
-                    source={{ html: mapHTML(mapRegion.latitude, mapRegion.longitude) }}
-                    style={styles.map}
-                    onMessage={handleWebViewMessage}
-                    javaScriptEnabled={true}
-                    domStorageEnabled={true}
-                    startInLoadingState={false}
-                  />
-                  <TouchableOpacity
-                    style={styles.locateButton}
-                    onPress={getCurrentLocation}
-                    disabled={loadingLocation}
-                  >
-                    {loadingLocation ? (
-                      <ActivityIndicator color="#FF7F2A" />
-                    ) : (
-                      <Text style={styles.locateButtonText}>📍 Use My Location</Text>
-                    )}
-                  </TouchableOpacity>
-                </View>
-              )}
+              {/* Map – always WebView */}
+              <View style={styles.mapContainer}>
+                <WebView
+                  ref={webViewRef}
+                  source={{ html: mapHTML(mapRegion.latitude, mapRegion.longitude) }}
+                  style={styles.map}
+                  onMessage={handleWebViewMessage}
+                  javaScriptEnabled={true}
+                  domStorageEnabled={true}
+                  startInLoadingState={false}
+                />
+                <TouchableOpacity
+                  style={styles.locateButton}
+                  onPress={getCurrentLocation}
+                  disabled={loadingLocation}
+                >
+                  {loadingLocation ? (
+                    <ActivityIndicator color="#FF7F2A" />
+                  ) : (
+                    <Text style={styles.locateButtonText}>📍 Use My Location</Text>
+                  )}
+                </TouchableOpacity>
+              </View>
 
               <Text style={styles.mapHint}>Drag the pin to your exact location</Text>
 

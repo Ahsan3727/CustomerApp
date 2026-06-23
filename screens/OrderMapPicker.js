@@ -1,4 +1,3 @@
-import Constants from 'expo-constants';
 import * as Location from 'expo-location';
 import { useEffect, useRef, useState } from 'react';
 import {
@@ -11,22 +10,13 @@ import {
   View,
 } from 'react-native';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
-import { WebView } from 'react-native-webview'; // ← added
+import { WebView } from 'react-native-webview';
 import AppButton from '../components/AppButton';
 import api from '../services/api';
 
-// ---------- Only load react-native-maps outside Expo Go ----------
-let MapView = null;
-let Marker = null;
-if (Constants.appOwnership !== 'expo') {
-  try {
-    const maps = require('react-native-maps');
-    MapView = maps.default || maps;
-    Marker = maps.Marker || (MapView && MapView.Marker);
-  } catch (e) {
-    console.warn('react-native-maps not available:', e.message);
-  }
-}
+// Always use WebView map – no native maps needed
+const MapView = null;
+const Marker = null;
 
 // Warm orange palette
 const Colors = {
@@ -38,7 +28,7 @@ const Colors = {
   heroBg: '#FF9F43',
 };
 
-// ---------- Leaflet map HTML (for Expo Go) ----------
+// ---------- Leaflet map HTML ----------
 const mapHTML = (lat, lng) => `
   <!DOCTYPE html>
   <html>
@@ -116,7 +106,7 @@ export default function OrderMapPicker({ navigation, route }) {
   const [loading, setLoading] = useState(false);
   const [locating, setLocating] = useState(true);
   const mapRef = useRef(null);
-  const webViewRef = useRef(null);          // ← added
+  const webViewRef = useRef(null);
 
   // ---------- Get current location ----------
   const getCurrentLocation = async () => {
@@ -137,19 +127,6 @@ export default function OrderMapPicker({ navigation, route }) {
       };
       setLocation(newLoc);
 
-      // Native map animation
-      if (MapView && mapRef.current) {
-        mapRef.current.animateToRegion(
-          {
-            latitude: newLoc.latitude,
-            longitude: newLoc.longitude,
-            latitudeDelta: 0.005,
-            longitudeDelta: 0.005,
-          },
-          800
-        );
-      }
-
       // WebView map – move marker via injected JS
       if (webViewRef.current) {
         webViewRef.current.injectJavaScript(`
@@ -164,20 +141,11 @@ export default function OrderMapPicker({ navigation, route }) {
   };
 
   useEffect(() => {
-    if (MapView) {
-      getCurrentLocation();
-    } else {
-      // WebView will load with initial map region and we can still get location later
-      setLocating(false);
-    }
+    // WebView will load with initial map region and we can still get location later
+    setLocating(false);
   }, []);
 
   // ---------- Handlers ----------
-  const handleMarkerDragEnd = (e) => {
-    const { latitude, longitude } = e.nativeEvent.coordinate;
-    setLocation({ latitude, longitude });
-  };
-
   const handleWebViewMessage = (event) => {
     try {
       const data = JSON.parse(event.nativeEvent.data);
@@ -190,12 +158,7 @@ export default function OrderMapPicker({ navigation, route }) {
   };
 
   const handleConfirm = async () => {
-    // Allow order even without location (landmark only) but warn if map is available
-    if (!location && MapView) {
-      Alert.alert('No Location', 'Please drag the red pin to your delivery location.');
-      return;
-    }
-
+    // Allow order even without location (landmark only)
     setLoading(true);
     try {
       await apiFunc({
@@ -227,46 +190,27 @@ export default function OrderMapPicker({ navigation, route }) {
   // ---------- Render ----------
   return (
     <View style={styles.container}>
-      {/* Map – native if available, otherwise WebView */}
-      {MapView ? (
-        <MapView
-          ref={mapRef}
-          style={StyleSheet.absoluteFillObject}
-          initialRegion={region}
-          showsUserLocation={false}
-          toolbarEnabled={false}
-        >
-          {location && (
-            <Marker
-              coordinate={location}
-              draggable
-              onDragEnd={handleMarkerDragEnd}
-              pinColor="red"
-            />
-          )}
-        </MapView>
-      ) : (
-        <View style={StyleSheet.absoluteFillObject}>
-          <WebView
-            ref={webViewRef}
-            source={{ html: mapHTML(region.latitude, region.longitude) }}
-            style={{ flex: 1 }}
-            onMessage={handleWebViewMessage}
-            javaScriptEnabled={true}
-            domStorageEnabled={true}
-            startInLoadingState={false}
-          />
-        </View>
-      )}
+      {/* Map – always WebView */}
+      <View style={StyleSheet.absoluteFillObject}>
+        <WebView
+          ref={webViewRef}
+          source={{ html: mapHTML(region.latitude, region.longitude) }}
+          style={{ flex: 1 }}
+          onMessage={handleWebViewMessage}
+          javaScriptEnabled={true}
+          domStorageEnabled={true}
+          startInLoadingState={false}
+        />
+      </View>
 
-      {/* Center hint (only when map is present and no location yet) */}
+      {/* Center hint (when no location yet) */}
       {!location && !locating && (
         <View style={styles.centerHint}>
           <Text style={styles.centerHintText}>📍 Drag the pin to set your delivery location</Text>
         </View>
       )}
 
-      {/* Re‑center GPS button (visible for both map types) */}
+      {/* Re‑center GPS button */}
       <TouchableOpacity
         style={[styles.locateButton, { top: insets.top + 20 }]}
         onPress={getCurrentLocation}
@@ -292,9 +236,7 @@ export default function OrderMapPicker({ navigation, route }) {
       {/* Bottom card */}
       <View style={[styles.bottomCard, { paddingBottom: insets.bottom + 16 }]}>
         <Text style={styles.instructionText}>
-          {MapView
-            ? 'Drag the red pin to your exact delivery spot'
-            : 'Drag the pin on the map to your delivery spot'}
+          Drag the pin on the map to your delivery spot
         </Text>
         <TextInput
           style={styles.landmarkInput}
@@ -313,7 +255,7 @@ export default function OrderMapPicker({ navigation, route }) {
   );
 }
 
-// ---------- Styles (unchanged except mapPlaceholder removed) ----------
+// ---------- Styles ----------
 const styles = StyleSheet.create({
   container: { flex: 1, backgroundColor: '#FFF6F0' },
   centerHint: {
