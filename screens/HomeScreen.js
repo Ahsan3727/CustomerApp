@@ -1,26 +1,26 @@
-﻿import React, { useState, useEffect, useCallback, useRef } from 'react';
+﻿import Constants from 'expo-constants';
+import { useCallback, useEffect, useRef, useState } from 'react';
 import {
-  View,
-  Text,
-  FlatList,
-  TouchableOpacity,
-  TextInput,
-  StyleSheet,
-  ScrollView,
   ActivityIndicator,
-  Dimensions,
-  RefreshControl,
   Animated,
+  Dimensions,
+  FlatList,
+  Image,
+  RefreshControl,
+  ScrollView,
+  StyleSheet,
+  Text,
+  TextInput,
+  TouchableOpacity,
+  View,
 } from 'react-native';
-import Constants from 'expo-constants';
-import api from '../services/api';
-import { useCart } from '../context/CartContext';
-import { useAuth } from '../context/AuthContext';
-import Card from '../components/Card';
-import ImageCarousel from '../components/ImageCarousel';
-import CartSummaryBar from '../components/CartSummaryBar';
 import BottomTabBar from '../components/BottomTabBar';
-import { Colors as GlobalColors, Fonts, Shadows, Radius } from '../theme';
+import Card from '../components/Card';
+import CartSummaryBar from '../components/CartSummaryBar';
+import ImageCarousel from '../components/ImageCarousel';
+import { useCart } from '../context/CartContext';
+import api from '../services/api';
+import { Fonts, Radius, Shadows } from '../theme';
 
 // Warm orange palette
 const Colors = {
@@ -37,9 +37,21 @@ const Colors = {
 };
 
 const { width } = Dimensions.get('window');
-const numColumns = width >= 600 ? 3 : 2;   // responsive columns
+const numColumns = width >= 600 ? 3 : 2;
 
 const categories = ['Fruits', 'Vegetables', 'Dairy', 'Bakery', 'Beverages'];
+
+// Helper to generate a small thumbnail URL from Cloudinary (or any URL)
+const getThumbnail = (imageUrl, size = 200) => {
+  if (!imageUrl) return null;
+  if (imageUrl.includes('res.cloudinary.com')) {
+    const parts = imageUrl.split('/upload/');
+    if (parts.length === 2) {
+      return `${parts[0]}/upload/w_${size},f_auto,q_auto/${parts[1]}`;
+    }
+  }
+  return imageUrl;
+};
 
 export default function HomeScreen({ navigation }) {
   // ---------- State ----------
@@ -53,17 +65,14 @@ export default function HomeScreen({ navigation }) {
   const { addToCart } = useCart();
   const { cart } = useCart();
 
-  // Animated values
-  const fadeAnim = useRef(new Animated.Value(0)).current;   // fade‑in for main content
-  const progressAnim = useRef(new Animated.Value(0)).current; // delivery progress bar
+  const fadeAnim = useRef(new Animated.Value(0)).current;
+  const progressAnim = useRef(new Animated.Value(0)).current;
 
-  // ---------- Cart calculations ----------
   const cartTotal = cart.reduce((sum, item) => sum + (item.adminPrice || item.price) * item.quantity, 0);
   const freeDeliveryThreshold = 1000;
   const progress = Math.min(cartTotal / freeDeliveryThreshold, 1);
   const remaining = freeDeliveryThreshold - cartTotal;
 
-  // ---------- Data fetching ----------
   const fetchProducts = async () => {
     try {
       const { data } = await api.get('/products');
@@ -89,7 +98,6 @@ export default function HomeScreen({ navigation }) {
     Promise.all([fetchProducts(), fetchBanners(), fetchPopularProducts()])
       .finally(() => {
         setLoading(false);
-        // Start fade‑in animation after loading
         Animated.timing(fadeAnim, {
           toValue: 1,
           duration: 500,
@@ -98,14 +106,12 @@ export default function HomeScreen({ navigation }) {
       });
   }, []);
 
-  // ---------- Pull‑to‑refresh ----------
   const onRefresh = useCallback(async () => {
     setRefreshing(true);
     await Promise.all([fetchProducts(), fetchBanners(), fetchPopularProducts()]);
     setRefreshing(false);
   }, []);
 
-  // Animate delivery progress bar when cartTotal changes
   useEffect(() => {
     Animated.timing(progressAnim, {
       toValue: progress,
@@ -114,7 +120,6 @@ export default function HomeScreen({ navigation }) {
     }).start();
   }, [cartTotal]);
 
-  // ---------- Derived data ----------
   const filtered = search
     ? products.filter(p => p.name.toLowerCase().includes(search.toLowerCase()))
     : products;
@@ -122,7 +127,6 @@ export default function HomeScreen({ navigation }) {
   const getDisplayPrice = (product) => product.adminPrice || product.price;
   const cardWidth = (width - 32 - (numColumns - 1) * 12) / numColumns;
 
-  // ---------- Loading state ----------
   if (loading) {
     return (
       <View style={styles.centered}>
@@ -132,7 +136,6 @@ export default function HomeScreen({ navigation }) {
     );
   }
 
-  // ---------- Main UI ----------
   return (
     <View style={styles.container}>
       {/* Header */}
@@ -174,7 +177,7 @@ export default function HomeScreen({ navigation }) {
             />
           }
         >
-          {/* Image Carousel (banners from admin) */}
+          {/* Image Carousel */}
           <ImageCarousel
             banners={banners}
             onBannerPress={(banner) => {
@@ -275,7 +278,18 @@ export default function HomeScreen({ navigation }) {
                   style={[styles.productCard, { width: cardWidth }]}
                   onPress={() => navigation.navigate('ProductDetail', { product: item })}
                 >
-                  <Text style={styles.productEmoji}>{item.emoji || '🛍️'}</Text>
+                  {/* Product image or emoji fallback */}
+                  <View style={styles.imageBox}>
+                    {item.image ? (
+                      <Image
+                        source={{ uri: getThumbnail(item.image, 200) }}
+                        style={styles.productImage}
+                        resizeMode="cover"
+                      />
+                    ) : (
+                      <Text style={styles.productEmoji}>{item.emoji || '🛍️'}</Text>
+                    )}
+                  </View>
                   <Text style={styles.productName} numberOfLines={2}>{item.name}</Text>
                   <Text style={styles.productPrice}>Rs. {getDisplayPrice(item)}</Text>
                   <TouchableOpacity
@@ -290,7 +304,7 @@ export default function HomeScreen({ navigation }) {
             />
           )}
 
-          {/* Dynamic Delivery Banner with animated progress bar */}
+          {/* Dynamic Delivery Banner */}
           <View style={styles.deliveryBanner}>
             <Text style={{ fontSize: 26 }}>🚚</Text>
             <View style={{ flex: 1 }}>
@@ -319,7 +333,7 @@ export default function HomeScreen({ navigation }) {
         </ScrollView>
       </Animated.View>
 
-      {/* Floating cart summary bar (appears when cart has items) */}
+      {/* Floating cart summary bar */}
       <CartSummaryBar navigation={navigation} />
 
       {/* Bottom Tab Bar */}
@@ -328,11 +342,21 @@ export default function HomeScreen({ navigation }) {
   );
 }
 
-// Inline horizontal product card
+// Inline horizontal product card (with image)
 function ProductCardInline({ product, onPress, onAddToCart }) {
   return (
     <TouchableOpacity style={styles.productCardInline} onPress={onPress} activeOpacity={0.7}>
-      <Text style={styles.productEmoji}>{product.emoji || '🛍️'}</Text>
+      <View style={styles.imageBoxSmall}>
+        {product.image ? (
+          <Image
+            source={{ uri: getThumbnail(product.image, 120) }}
+            style={styles.productImageSmall}
+            resizeMode="cover"
+          />
+        ) : (
+          <Text style={styles.productEmoji}>{product.emoji || '🛍️'}</Text>
+        )}
+      </View>
       <Text style={styles.productName} numberOfLines={1}>{product.name}</Text>
       <Text style={styles.productDesc}>{product.description || ''}</Text>
       <View style={styles.productBottom}>
@@ -345,7 +369,6 @@ function ProductCardInline({ product, onPress, onAddToCart }) {
   );
 }
 
-// Styles – unchanged from the previous complete version
 const styles = StyleSheet.create({
   container: { flex: 1, backgroundColor: '#FFF6F0' },
   centered: { flex: 1, justifyContent: 'center', alignItems: 'center' },
@@ -399,6 +422,35 @@ const styles = StyleSheet.create({
     width: 148, borderWidth: 1, borderColor: '#FFD0B5', ...Shadows.sm,
   },
   productCard: { marginHorizontal: 4, marginBottom: 12, alignItems: 'center', padding: 14 },
+  // Image containers
+  imageBox: {
+    width: '100%',
+    height: 120,
+    borderRadius: Radius.md,
+    backgroundColor: '#f5f5f5',
+    justifyContent: 'center',
+    alignItems: 'center',
+    marginBottom: 8,
+    overflow: 'hidden',
+  },
+  imageBoxSmall: {
+    width: '100%',
+    height: 80,
+    borderRadius: Radius.md,
+    backgroundColor: '#f5f5f5',
+    justifyContent: 'center',
+    alignItems: 'center',
+    marginBottom: 8,
+    overflow: 'hidden',
+  },
+  productImage: {
+    width: '100%',
+    height: '100%',
+  },
+  productImageSmall: {
+    width: '100%',
+    height: '100%',
+  },
   productEmoji: { fontSize: 44, textAlign: 'center', marginBottom: 8 },
   productName: { fontWeight: '600', fontSize: 13, color: '#3E2723', lineHeight: 16, textAlign: 'center' },
   productDesc: { fontSize: 10, color: '#9A3412', marginVertical: 2, textAlign: 'center' },

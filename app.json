@@ -13,25 +13,22 @@
       "package": "com.grocerase.customer"
     },
     "extra": {
-      "eas": {
-        "projectId": "a6e660b8-556f-4915-a889-6a6157e659ed"
-      },
-      "updates": {
-        "url": "https://u.expo.dev/a6e660b8-556f-4915-a889-6a6157e659ed"
-      },
       "runtimeVersion": {
         "policy": "appVersion"
+      },
+      "eas": {
+        "projectId": "3004ce01-0338-430b-b844-b05814b6c8b2"
       }
     },
-    "owner": "ahsan3727",
+    "owner": "ahsan372717",
     "runtimeVersion": {
       "policy": "appVersion"
     },
     "updates": {
-  "enabled": true,
-  "checkAutomatically": "ON_LOAD",
-  "fallbackToCacheTimeout": 0,
-      "url": "https://u.expo.dev/a6e660b8-556f-4915-a889-6a6157e659ed"
+      "enabled": true,
+      "checkAutomatically": "ON_LOAD",
+      "fallbackToCacheTimeout": 0,
+      "url": "https://u.expo.dev/3004ce01-0338-430b-b844-b05814b6c8b2"
     },
     "ios": {}
   }
