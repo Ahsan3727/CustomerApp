@@ -15,12 +15,11 @@ import {
   View,
 } from 'react-native';
 import BottomTabBar from '../components/BottomTabBar';
-import Card from '../components/Card';
 import CartSummaryBar from '../components/CartSummaryBar';
 import ImageCarousel from '../components/ImageCarousel';
 import { useCart } from '../context/CartContext';
 import api from '../services/api';
-import { Fonts, Radius, Shadows } from '../theme';
+import { Shadows } from '../theme';
 
 // Warm orange palette
 const Colors = {
@@ -37,11 +36,11 @@ const Colors = {
 };
 
 const { width } = Dimensions.get('window');
-const numColumns = width >= 600 ? 3 : 2;
+const numColumns = 3;   // ← now 3 products per row
 
 const categories = ['Fruits', 'Vegetables', 'Dairy', 'Bakery', 'Beverages'];
 
-// Helper to generate a small thumbnail URL from Cloudinary (or any URL)
+// Cloudinary thumbnail helper – keeps images lightweight
 const getThumbnail = (imageUrl, size = 200) => {
   if (!imageUrl) return null;
   if (imageUrl.includes('res.cloudinary.com')) {
@@ -125,20 +124,20 @@ export default function HomeScreen({ navigation }) {
     : products;
 
   const getDisplayPrice = (product) => product.adminPrice || product.price;
-  const cardWidth = (width - 32 - (numColumns - 1) * 12) / numColumns;
+  const cardWidth = (width - 32 - (numColumns - 1) * 10) / numColumns;   // fit 3 cards
 
   if (loading) {
     return (
       <View style={styles.centered}>
         <ActivityIndicator size="large" color={Colors.primary} />
-        <Text style={{ marginTop: 12, color: Colors.gray400 }}>Loading products...</Text>
+        <Text style={{ marginTop: 12, color: Colors.gray400 }}>Loading fresh deals...</Text>
       </View>
     );
   }
 
   return (
     <View style={styles.container}>
-      {/* Header */}
+      {/* ---- Sticky Header ---- */}
       <View style={styles.header}>
         <View style={styles.searchBox}>
           <Text style={styles.searchIcon}>🔍</Text>
@@ -161,13 +160,18 @@ export default function HomeScreen({ navigation }) {
           onPress={() => navigation.navigate('Cart')}
         >
           <Text style={styles.cartIcon}>🛒</Text>
+          {cart.length > 0 && (
+            <View style={styles.cartBadge}>
+              <Text style={styles.cartBadgeText}>{cart.length}</Text>
+            </View>
+          )}
         </TouchableOpacity>
       </View>
 
       <Animated.View style={{ flex: 1, opacity: fadeAnim }}>
         <ScrollView
           showsVerticalScrollIndicator={false}
-          contentContainerStyle={{ paddingBottom: 220 }}
+          contentContainerStyle={styles.scrollContent}
           refreshControl={
             <RefreshControl
               refreshing={refreshing}
@@ -177,7 +181,7 @@ export default function HomeScreen({ navigation }) {
             />
           }
         >
-          {/* Image Carousel */}
+          {/* ---- Image Carousel ---- */}
           <ImageCarousel
             banners={banners}
             onBannerPress={(banner) => {
@@ -185,7 +189,7 @@ export default function HomeScreen({ navigation }) {
             }}
           />
 
-          {/* Hero Section */}
+          {/* ---- Hero Section ---- */}
           <View style={styles.hero}>
             <View style={styles.heroTag}>
               <Text style={styles.heroTagText}>🔥 Weekly Special</Text>
@@ -198,24 +202,27 @@ export default function HomeScreen({ navigation }) {
             <Text style={styles.heroFloat}>🥑</Text>
           </View>
 
-          {/* Offer Cards */}
+          {/* ---- Offer Cards ---- */}
           <View style={styles.offerRow}>
             <TouchableOpacity style={[styles.offerCard, { backgroundColor: '#FFF0E5' }]}>
-              <Text style={{ fontSize: 28 }}>🌿</Text>
-              <Text style={{ fontWeight: '700', fontSize: 13, color: Colors.darkest }}>Organic</Text>
-              <Text style={{ fontSize: 18, fontWeight: '800', color: '#b45309' }}>20% OFF</Text>
+              <Text style={styles.offerIcon}>🌿</Text>
+              <View>
+                <Text style={styles.offerTitle}>Organic</Text>
+                <Text style={styles.offerSubtitle}>Save up to 20%</Text>
+              </View>
             </TouchableOpacity>
             <TouchableOpacity style={[styles.offerCard, { backgroundColor: '#FFE8E0' }]}>
-              <Text style={{ fontSize: 28 }}>🥩</Text>
-              <Text style={{ fontWeight: '700', fontSize: 13, color: Colors.darkest }}>Fresh Meat</Text>
-              <Text style={{ fontSize: 18, fontWeight: '800', color: '#b91c1c' }}>15% OFF</Text>
+              <Text style={styles.offerIcon}>🥩</Text>
+              <View>
+                <Text style={styles.offerTitle}>Fresh Meat</Text>
+                <Text style={styles.offerSubtitle}>15% OFF</Text>
+              </View>
             </TouchableOpacity>
           </View>
 
-          {/* Categories */}
+          {/* ---- Categories ---- */}
           <View style={styles.sectionHeader}>
-            <Text style={styles.sectionTitle}>Categories</Text>
-            <TouchableOpacity><Text style={styles.seeAll}>See all →</Text></TouchableOpacity>
+            <Text style={styles.sectionTitle}>Shop by Category</Text>
           </View>
           <ScrollView
             horizontal
@@ -229,16 +236,17 @@ export default function HomeScreen({ navigation }) {
                 onPress={() => navigation.navigate('ProductList', { category: cat })}
                 activeOpacity={0.7}
               >
-                <View style={styles.chipIcon}><Text>🛍️</Text></View>
+                <View style={styles.chipIcon}>
+                  <Text style={styles.chipEmoji}>🛍️</Text>
+                </View>
                 <Text style={styles.chipText}>{cat}</Text>
               </TouchableOpacity>
             ))}
           </ScrollView>
 
-          {/* Popular Products (dynamic) */}
+          {/* ---- Popular Products ---- */}
           <View style={styles.sectionHeader}>
-            <Text style={styles.sectionTitle}>🔥 Popular</Text>
-            <TouchableOpacity><Text style={styles.seeAll}>See all →</Text></TouchableOpacity>
+            <Text style={styles.sectionTitle}>🔥 Trending Now</Text>
           </View>
           <ScrollView
             horizontal
@@ -255,10 +263,9 @@ export default function HomeScreen({ navigation }) {
             ))}
           </ScrollView>
 
-          {/* Best Sellers (grid) */}
+          {/* ---- Best Sellers Grid (3 per row) ---- */}
           <View style={styles.sectionHeader}>
             <Text style={styles.sectionTitle}>🛒 Best Sellers</Text>
-            <TouchableOpacity><Text style={styles.seeAll}>See all →</Text></TouchableOpacity>
           </View>
           {filtered.length === 0 ? (
             <View style={styles.emptyState}>
@@ -274,41 +281,49 @@ export default function HomeScreen({ navigation }) {
               scrollEnabled={false}
               columnWrapperStyle={numColumns > 1 ? styles.row : null}
               renderItem={({ item }) => (
-                <Card
+                <TouchableOpacity
                   style={[styles.productCard, { width: cardWidth }]}
+                  activeOpacity={0.85}
                   onPress={() => navigation.navigate('ProductDetail', { product: item })}
                 >
-                  {/* Product image or emoji fallback */}
+                  {/* Product Image */}
                   <View style={styles.imageBox}>
                     {item.image ? (
                       <Image
-                        source={{ uri: getThumbnail(item.image, 200) }}
+                        source={{ uri: getThumbnail(item.image, 180) }}
                         style={styles.productImage}
                         resizeMode="cover"
                       />
                     ) : (
                       <Text style={styles.productEmoji}>{item.emoji || '🛍️'}</Text>
                     )}
+                    {/* Quick add overlay on image */}
+                    <TouchableOpacity
+                      style={styles.quickAdd}
+                      onPress={() => addToCart(item)}
+                      activeOpacity={0.7}
+                    >
+                      <Text style={styles.quickAddText}>+</Text>
+                    </TouchableOpacity>
                   </View>
-                  <Text style={styles.productName} numberOfLines={2}>{item.name}</Text>
-                  <Text style={styles.productPrice}>Rs. {getDisplayPrice(item)}</Text>
-                  <TouchableOpacity
-                    style={styles.addButton}
-                    onPress={() => addToCart(item)}
-                    activeOpacity={0.7}
-                  >
-                    <Text style={styles.addButtonText}>Add</Text>
-                  </TouchableOpacity>
-                </Card>
+                  {/* Details */}
+                  <View style={styles.productDetails}>
+                    <Text style={styles.productName} numberOfLines={2}>{item.name}</Text>
+                    <View style={styles.priceRow}>
+                      <Text style={styles.productPrice}>Rs. {getDisplayPrice(item)}</Text>
+                      <Text style={styles.productUnit}>/ {item.unit || 'pc'}</Text>
+                    </View>
+                  </View>
+                </TouchableOpacity>
               )}
             />
           )}
 
-          {/* Dynamic Delivery Banner */}
+          {/* ---- Delivery Banner ---- */}
           <View style={styles.deliveryBanner}>
-            <Text style={{ fontSize: 26 }}>🚚</Text>
+            <Text style={styles.deliveryIcon}>🚚</Text>
             <View style={{ flex: 1 }}>
-              <Text style={{ fontWeight: '600', fontSize: 12, color: Colors.darkest }}>
+              <Text style={styles.deliveryText}>
                 {progress >= 1
                   ? '🎉 Free Delivery Unlocked!'
                   : `Add Rs. ${remaining.toFixed(0)} more for free delivery`
@@ -333,23 +348,23 @@ export default function HomeScreen({ navigation }) {
         </ScrollView>
       </Animated.View>
 
-      {/* Floating cart summary bar */}
+      {/* ---- Cart Summary ---- */}
       <CartSummaryBar navigation={navigation} />
 
-      {/* Bottom Tab Bar */}
+      {/* ---- Bottom Navigation ---- */}
       <BottomTabBar navigation={navigation} activeScreen="Home" />
     </View>
   );
 }
 
-// Inline horizontal product card (with image)
+// ---- Inline Popular Product Card ----
 function ProductCardInline({ product, onPress, onAddToCart }) {
   return (
     <TouchableOpacity style={styles.productCardInline} onPress={onPress} activeOpacity={0.7}>
       <View style={styles.imageBoxSmall}>
         {product.image ? (
           <Image
-            source={{ uri: getThumbnail(product.image, 120) }}
+            source={{ uri: getThumbnail(product.image, 180) }}
             style={styles.productImageSmall}
             resizeMode="cover"
           />
@@ -369,117 +384,143 @@ function ProductCardInline({ product, onPress, onAddToCart }) {
   );
 }
 
+// ---- Styles ----
 const styles = StyleSheet.create({
   container: { flex: 1, backgroundColor: '#FFF6F0' },
   centered: { flex: 1, justifyContent: 'center', alignItems: 'center' },
+  scrollContent: { paddingBottom: 200 },
+
+  // Header
   header: {
     flexDirection: 'row', alignItems: 'center', paddingHorizontal: 12, paddingVertical: 10,
     paddingTop: Constants.statusBarHeight + 8, backgroundColor: '#FF9F43',
-    borderBottomLeftRadius: 20, borderBottomRightRadius: 20, ...Shadows.sm,
+    borderBottomLeftRadius: 20, borderBottomRightRadius: 20, ...Shadows.md,
   },
   searchBox: {
     flex: 1, flexDirection: 'row', alignItems: 'center', backgroundColor: '#FFFFFF',
-    borderRadius: Radius.full, paddingLeft: 16, marginRight: 8, height: 44,
+    borderRadius: 24, paddingLeft: 16, marginRight: 8, height: 44,
   },
   searchIcon: { fontSize: 16, marginRight: 8, color: Colors.gray400 },
   searchInput: { flex: 1, fontSize: 14, color: Colors.darkest },
   clearIcon: { fontSize: 18, color: Colors.gray400, marginRight: 12 },
   cartButton: { width: 44, height: 44, justifyContent: 'center', alignItems: 'center' },
   cartIcon: { fontSize: 24 },
+  cartBadge: {
+    position: 'absolute', top: 2, right: 2,
+    backgroundColor: '#E6691C', borderRadius: 10, width: 20, height: 20,
+    justifyContent: 'center', alignItems: 'center',
+  },
+  cartBadgeText: { color: '#FFF', fontSize: 11, fontWeight: '700' },
+
+  // Hero
   hero: {
-    backgroundColor: '#FF9F43', borderRadius: Radius.xl, padding: 22, margin: 16,
+    backgroundColor: '#FF9F43', borderRadius: 20, padding: 22, margin: 16,
     position: 'relative', overflow: 'hidden', ...Shadows.lg,
   },
   heroTag: {
     backgroundColor: 'rgba(255,255,255,0.3)', paddingHorizontal: 12, paddingVertical: 5,
-    borderRadius: Radius.full, alignSelf: 'flex-start', marginBottom: 8,
+    borderRadius: 20, alignSelf: 'flex-start', marginBottom: 8,
   },
   heroTagText: { color: '#fff', fontSize: 10, fontWeight: '700', letterSpacing: 0.8, textTransform: 'uppercase' },
   heroTitle: { color: '#fff', fontSize: 24, fontWeight: '800', letterSpacing: -0.6, lineHeight: 28, marginBottom: 4 },
   heroSubtitle: { color: 'rgba(255,255,255,0.9)', fontSize: 13, marginBottom: 14 },
   heroBtn: {
     backgroundColor: '#FFFFFF', paddingVertical: 10, paddingHorizontal: 18,
-    borderRadius: Radius.full, alignSelf: 'flex-start',
+    borderRadius: 20, alignSelf: 'flex-start',
     shadowColor: '#000', shadowOpacity: 0.2, shadowRadius: 14, elevation: 3,
   },
   heroBtnText: { color: '#FF7F2A', fontWeight: '700', fontSize: 13 },
   heroFloat: { position: 'absolute', right: 12, top: '50%', marginTop: -30, fontSize: 60, opacity: 0.8 },
+
+  // Offers
   offerRow: { flexDirection: 'row', gap: 10, marginHorizontal: 16, marginBottom: 16 },
-  offerCard: { flex: 1, borderRadius: Radius.lg, padding: 14, justifyContent: 'space-between', ...Shadows.sm },
-  sectionHeader: { flexDirection: 'row', justifyContent: 'space-between', alignItems: 'center', paddingHorizontal: 16, marginBottom: 12 },
-  sectionTitle: { fontSize: Fonts.sizes.lg, fontWeight: '700', color: '#3E2723' },
-  seeAll: { fontSize: 13, color: '#FF7F2A', fontWeight: '600' },
-  categoryRow: { paddingLeft: 12, paddingRight: 8, marginBottom: 16 },
-  chip: { alignItems: 'center', marginRight: 16, width: 70 },
+  offerCard: {
+    flex: 1, borderRadius: 16, padding: 14, flexDirection: 'row', alignItems: 'center',
+    ...Shadows.sm, gap: 10,
+  },
+  offerIcon: { fontSize: 36 },
+  offerTitle: { fontWeight: '700', fontSize: 14, color: Colors.darkest },
+  offerSubtitle: { fontSize: 11, color: '#b45309', marginTop: 2 },
+
+  // Sections
+  sectionHeader: {
+    flexDirection: 'row', justifyContent: 'space-between', alignItems: 'center',
+    paddingHorizontal: 16, marginBottom: 12, marginTop: 8,
+  },
+  sectionTitle: { fontSize: 17, fontWeight: '700', color: '#3E2723', letterSpacing: -0.3 },
+
+  // Categories
+  categoryRow: { paddingLeft: 12, paddingRight: 8, marginBottom: 18 },
+  chip: { alignItems: 'center', marginRight: 20, width: 70 },
   chipIcon: {
-    width: 50, height: 50, borderRadius: Radius.md, backgroundColor: '#FFFFFF',
+    width: 54, height: 54, borderRadius: 16, backgroundColor: '#FFFFFF',
     justifyContent: 'center', alignItems: 'center', marginBottom: 6, ...Shadows.sm,
   },
-  chipText: { fontSize: 10, color: '#3E2723', fontWeight: '500' },
-  productScroll: { marginBottom: 16, paddingLeft: 16 },
+  chipEmoji: { fontSize: 26 },
+  chipText: { fontSize: 11, color: '#3E2723', fontWeight: '600' },
+
+  // Products horizontal
+  productScroll: { marginBottom: 18, paddingLeft: 16 },
   productCardInline: {
-    backgroundColor: '#FFFFFF', borderRadius: Radius.lg, padding: 12, marginRight: 12,
-    width: 148, borderWidth: 1, borderColor: '#FFD0B5', ...Shadows.sm,
+    backgroundColor: '#FFFFFF', borderRadius: 16, padding: 12, marginRight: 14,
+    width: 150, borderWidth: 1, borderColor: '#FFD0B5', ...Shadows.sm,
   },
-  productCard: { marginHorizontal: 4, marginBottom: 12, alignItems: 'center', padding: 14 },
-  // Image containers
+
+  // Product grid (3 per row)
+  productCard: {
+    backgroundColor: '#FFFFFF', borderRadius: 16, marginHorizontal: 4,
+    marginBottom: 12, overflow: 'hidden', ...Shadows.sm,
+  },
   imageBox: {
-    width: '100%',
-    height: 120,
-    borderRadius: Radius.md,
-    backgroundColor: '#f5f5f5',
-    justifyContent: 'center',
-    alignItems: 'center',
-    marginBottom: 8,
-    overflow: 'hidden',
+    width: '100%', height: 110, backgroundColor: '#f5f5f5',
+    justifyContent: 'center', alignItems: 'center',
   },
   imageBoxSmall: {
-    width: '100%',
-    height: 80,
-    borderRadius: Radius.md,
-    backgroundColor: '#f5f5f5',
-    justifyContent: 'center',
-    alignItems: 'center',
-    marginBottom: 8,
-    overflow: 'hidden',
+    width: '100%', height: 90, borderRadius: 12,
+    backgroundColor: '#f5f5f5', justifyContent: 'center', alignItems: 'center',
+    marginBottom: 8, overflow: 'hidden',
   },
-  productImage: {
-    width: '100%',
-    height: '100%',
+  productImage: { width: '100%', height: '100%' },
+  productImageSmall: { width: '100%', height: '100%' },
+  productEmoji: { fontSize: 44, textAlign: 'center' },
+  quickAdd: {
+    position: 'absolute', bottom: 8, right: 8,
+    backgroundColor: Colors.primary, borderRadius: 15, width: 30, height: 30,
+    justifyContent: 'center', alignItems: 'center',
+    shadowColor: '#FF7F2A', shadowOpacity: 0.4, shadowRadius: 8, elevation: 4,
   },
-  productImageSmall: {
-    width: '100%',
-    height: '100%',
-  },
-  productEmoji: { fontSize: 44, textAlign: 'center', marginBottom: 8 },
-  productName: { fontWeight: '600', fontSize: 13, color: '#3E2723', lineHeight: 16, textAlign: 'center' },
+  quickAddText: { color: '#FFF', fontWeight: '700', fontSize: 16 },
+  productDetails: { padding: 10 },
+  productName: { fontWeight: '600', fontSize: 12, color: '#3E2723', lineHeight: 16, marginBottom: 4 },
+  priceRow: { flexDirection: 'row', alignItems: 'baseline', gap: 2 },
+  productPrice: { fontWeight: '700', fontSize: 14, color: '#E6691C' },
+  productUnit: { fontSize: 11, color: '#9A3412' },
   productDesc: { fontSize: 10, color: '#9A3412', marginVertical: 2, textAlign: 'center' },
-  productBottom: { flexDirection: 'row', justifyContent: 'space-between', alignItems: 'center', marginTop: 8 },
-  productPrice: { fontWeight: '700', fontSize: 15, color: '#E6691C' },
+  productBottom: { flexDirection: 'row', justifyContent: 'space-between', alignItems: 'center', marginTop: 8, width: '100%' },
   productAdd: {
     width: 30, height: 30, borderRadius: 15, backgroundColor: '#FF7F2A',
     justifyContent: 'center', alignItems: 'center',
     shadowColor: '#FF7F2A', shadowOpacity: 0.3, shadowRadius: 8, elevation: 3,
   },
-  addButton: {
-    marginTop: 10, backgroundColor: '#FF7F2A', borderRadius: Radius.full,
-    paddingVertical: 8, paddingHorizontal: 20, minWidth: 70, alignItems: 'center',
-    shadowColor: '#FF7F2A', shadowOpacity: 0.3, shadowRadius: 8, elevation: 3,
-  },
-  addButtonText: { color: '#FFFFFF', fontWeight: '700', fontSize: 13 },
+
   emptyState: { alignItems: 'center', paddingVertical: 40 },
   emptyIcon: { fontSize: 48, marginBottom: 12, opacity: 0.5 },
   emptyText: { fontSize: 16, fontWeight: '600', color: '#9A3412' },
+
+  // Delivery
   deliveryBanner: {
     flexDirection: 'row', alignItems: 'center', gap: 10,
-    backgroundColor: '#FFF0E5', borderRadius: Radius.lg, padding: 12,
+    backgroundColor: '#FFF0E5', borderRadius: 16, padding: 12,
     marginHorizontal: 16, marginTop: 8, marginBottom: 20,
     borderWidth: 1, borderColor: '#FFD0B5',
   },
+  deliveryIcon: { fontSize: 26 },
+  deliveryText: { fontWeight: '600', fontSize: 12, color: Colors.darkest },
   progressBar: {
     height: 5, backgroundColor: '#FFD0B5', borderRadius: 10,
     overflow: 'hidden', marginTop: 4,
   },
   progressFill: { height: '100%', borderRadius: 10 },
+
   row: { justifyContent: 'space-between', paddingHorizontal: 8 },
 });
