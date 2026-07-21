@@ -1,17 +1,19 @@
-﻿import React, { useState } from 'react';
-import { View, Text, ScrollView, StyleSheet, Alert } from 'react-native';
-import { useAuth } from '../context/AuthContext';
-import AsyncStorage from '@react-native-async-storage/async-storage';
+﻿import AsyncStorage from '@react-native-async-storage/async-storage';
+import Constants from 'expo-constants';
+import { useState } from 'react';
+import {
+  Alert,
+  ScrollView,
+  StyleSheet,
+  Text,
+  View,
+} from 'react-native';
 import AppButton from '../components/AppButton';
-import InputGroup from '../components/InputGroup';
-import Card from '../components/Card';
 import BottomTabBar from '../components/BottomTabBar';
-import { Colors as GlobalColors, Fonts } from '../theme';
-
-const Colors = {
-  primary: '#FF7F2A', primaryLight: '#FFF0E5', white: '#FFFFFF', gray100: '#f1f5f9',
-  gray400: '#9CA3AF', darkest: '#3E2723', orangeText: '#8B4513', heroBg: '#FF9F43',
-};
+import Card from '../components/Card';
+import InputGroup from '../components/InputGroup';
+import { useAuth } from '../context/AuthContext';
+import { Colors, Radius, Shadows } from '../theme';
 
 export default function ProfileScreen({ navigation }) {
   const { customer, updateProfile, logout } = useAuth();
@@ -21,47 +23,182 @@ export default function ProfileScreen({ navigation }) {
   const [city, setCity] = useState(customer?.address?.city || '');
 
   const handleSave = async () => {
-    const result = await updateProfile({ name, phone, address: { street, city } });
-    if (result.success) Alert.alert('Success', 'Profile updated');
-    else Alert.alert('Error', result.message);
+    const result = await updateProfile({
+      name,
+      phone,
+      address: { street, city },
+    });
+    if (result.success) {
+      Alert.alert('Success', 'Profile updated');
+    } else {
+      Alert.alert('Error', result.message);
+    }
   };
 
   const handleLogout = () => {
     Alert.alert('Logout', 'Are you sure?', [
       { text: 'Cancel', style: 'cancel' },
-      { text: 'Logout', style: 'destructive', onPress: async () => { await AsyncStorage.clear(); logout(); } },
+      {
+        text: 'Logout',
+        style: 'destructive',
+        onPress: async () => {
+          await AsyncStorage.clear();
+          logout();
+        },
+      },
     ]);
   };
 
   return (
     <View style={styles.container}>
-      <ScrollView contentContainerStyle={{ paddingBottom: 120 }}>
+      <ScrollView
+        contentContainerStyle={styles.scrollContent}
+        showsVerticalScrollIndicator={false}
+      >
+        {/* Header */}
         <View style={styles.header}>
           <Text style={styles.headerTitle}>Profile</Text>
         </View>
+
+        {/* Avatar */}
         <View style={styles.avatarContainer}>
-          <View style={styles.avatar}><Text style={styles.avatarText}>{(customer?.name || 'C')[0].toUpperCase()}</Text></View>
+          <View style={styles.avatar}>
+            <Text style={styles.avatarText}>
+              {(customer?.name || 'C')[0].toUpperCase()}
+            </Text>
+          </View>
+          <Text style={styles.userName}>{customer?.name || 'Customer'}</Text>
+          <Text style={styles.userPhone}>{customer?.phone || '+92 300 1234567'}</Text>
         </View>
-        <Card style={{ marginHorizontal: 16 }}>
-          <InputGroup icon="👤" placeholder="Name" value={name} onChangeText={setName} />
-          <InputGroup icon="📧" placeholder="Email" value={customer?.email} editable={false} />
-          <InputGroup icon="📱" placeholder="Phone" value={phone} onChangeText={setPhone} keyboardType="phone-pad" />
-          <InputGroup icon="📍" placeholder="Street" value={street} onChangeText={setStreet} />
-          <InputGroup icon="🏙️" placeholder="City" value={city} onChangeText={setCity} />
+
+        {/* Profile Details Card */}
+        <Card style={styles.profileCard}>
+          <InputGroup
+            icon="👤"
+            placeholder="Name"
+            value={name}
+            onChangeText={setName}
+          />
+          <InputGroup
+            icon="📧"
+            placeholder="Email"
+            value={customer?.email}
+            editable={false}
+          />
+          <InputGroup
+            icon="📱"
+            placeholder="Phone"
+            value={phone}
+            onChangeText={setPhone}
+            keyboardType="phone-pad"
+          />
+          <InputGroup
+            icon="📍"
+            placeholder="Street"
+            value={street}
+            onChangeText={setStreet}
+          />
+          <InputGroup
+            icon="🏙️"
+            placeholder="City"
+            value={city}
+            onChangeText={setCity}
+          />
         </Card>
-        <AppButton title="Save" onPress={handleSave} style={{ marginHorizontal: 16, marginTop: 20 }} />
-        <AppButton title="🚪 Logout" type="outline" style={{ marginHorizontal: 16, marginTop: 12, borderColor: '#fecaca' }} textStyle={{ color: Colors.red }} onPress={handleLogout} />
+
+        {/* Save Button */}
+        <AppButton
+          title="Save"
+          onPress={handleSave}
+          style={styles.saveButton}
+        />
+
+        {/* Logout Button */}
+        <AppButton
+          title="🚪 Logout"
+          type="outline"
+          onPress={handleLogout}
+          style={styles.logoutButton}
+          textStyle={{ color: Colors.chili }}
+        />
       </ScrollView>
+
       <BottomTabBar navigation={navigation} activeScreen="Profile" />
     </View>
   );
 }
 
 const styles = StyleSheet.create({
-  container: { flex: 1, backgroundColor: '#FFF6F0' },
-  header: { paddingTop: 50, paddingHorizontal: 16, paddingBottom: 12, backgroundColor: Colors.heroBg, borderBottomLeftRadius: 20, borderBottomRightRadius: 20 },
-  headerTitle: { fontSize: Fonts.sizes.xl, fontWeight: '700', color: '#FFFFFF' },
-  avatarContainer: { alignItems: 'center', marginVertical: 20 },
-  avatar: { width: 72, height: 72, borderRadius: 36, backgroundColor: Colors.primary, justifyContent: 'center', alignItems: 'center' },
-  avatarText: { color: '#FFFFFF', fontSize: 30, fontWeight: '700' },
+  container: {
+    flex: 1,
+    backgroundColor: Colors.linen,
+  },
+  scrollContent: {
+    paddingBottom: 120,
+  },
+  header: {
+    paddingTop: Constants.statusBarHeight + 16,
+    paddingHorizontal: 16,
+    paddingBottom: 14,
+    backgroundColor: Colors.apricot,
+    borderBottomLeftRadius: 24,
+    borderBottomRightRadius: 24,
+    ...Shadows.md,
+  },
+  headerTitle: {
+    fontSize: 20,
+    fontWeight: '700',
+    color: Colors.white,
+    fontFamily: 'Sora-Bold',
+  },
+  avatarContainer: {
+    alignItems: 'center',
+    marginTop: -30,            // pulls avatar up to overlap header a little
+    marginBottom: 20,
+  },
+  avatar: {
+    width: 72,
+    height: 72,
+    borderRadius: 36,
+    backgroundColor: Colors.apricot,
+    justifyContent: 'center',
+    alignItems: 'center',
+    borderWidth: 4,
+    borderColor: Colors.white,
+    ...Shadows.md,
+  },
+  avatarText: {
+    color: Colors.white,
+    fontSize: 30,
+    fontWeight: '700',
+  },
+  userName: {
+    marginTop: 12,
+    fontSize: 18,
+    fontWeight: '700',
+    color: Colors.ink,
+  },
+  userPhone: {
+    fontSize: 13,
+    color: Colors.inkMuted,
+    marginTop: 4,
+  },
+  profileCard: {
+    marginHorizontal: 16,
+    padding: 16,
+    borderWidth: 1,
+    borderColor: Colors.border,
+    borderRadius: Radius.lg,
+    backgroundColor: Colors.white,
+    ...Shadows.sm,
+  },
+  saveButton: {
+    marginHorizontal: 16,
+    marginTop: 20,
+  },
+  logoutButton: {
+    marginHorizontal: 16,
+    marginTop: 12,
+    borderColor: Colors.chili,
+  },
 });

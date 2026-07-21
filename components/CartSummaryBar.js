@@ -1,76 +1,123 @@
-import React, { useEffect, useRef } from 'react';
-import { View, Text, TouchableOpacity, StyleSheet, Animated } from 'react-native';
+import { useEffect, useRef, useState } from 'react';
+import { Animated, StyleSheet, Text, TouchableOpacity, View } from 'react-native';
+import { useSafeAreaInsets } from 'react-native-safe-area-context';
 import { useCart } from '../context/CartContext';
-import { Colors as GlobalColors, Fonts, Radius, Shadows } from '../theme';
+import { Radius, Shadows } from '../theme';
 
-// Theme colours
+// Green theme colours (basil family)
 const Colors = {
-  primary: '#FF7F2A',
-  primaryLight: '#FFF0E5',
+  basilDark: '#0F5233',
+  basil: '#1B7A4F',
+  basilLight: '#EAF6EF',
+  apricot: '#E8823A',        // kept for the CTA button only
   white: '#FFFFFF',
-  gray400: '#9CA3AF',
-  darkest: '#3E2723',
-  orangeText: '#8B4513',
-  green: '#16a34a',
+  inkMuted: '#6B7280',
 };
 
-const FREE_DELIVERY_THRESHOLD = 1000;   // Rs. 1000
+const FREE_DELIVERY_THRESHOLD = 1000;
 
 export default function CartSummaryBar({ navigation }) {
   const { cart, cartTotalItems } = useCart();
-  const animatedWidth = useRef(new Animated.Value(0)).current;
-  const fadeAnim = useRef(new Animated.Value(0)).current;
+  const insets = useSafeAreaInsets();
 
-  const totalAmount = cart.reduce((sum, item) => sum + (item.adminPrice || item.price) * item.quantity, 0);
+  // Animated values
+  const translateY = useRef(new Animated.Value(30)).current;
+  const opacity = useRef(new Animated.Value(0)).current;
+  const progressAnim = useRef(new Animated.Value(0)).current;
+  const [hasPulsed, setHasPulsed] = useState(false);
+
+  const totalAmount = cart.reduce(
+    (sum, item) => sum + (item.adminPrice || item.price) * item.quantity,
+    0
+  );
   const itemCount = cartTotalItems();
   const progress = Math.min(totalAmount / FREE_DELIVERY_THRESHOLD, 1);
   const remaining = FREE_DELIVERY_THRESHOLD - totalAmount;
+  const freeDeliveryUnlocked = progress >= 1;
 
-  // Animate progress bar & fade in/out when cart changes
+  // Entrance / exit animation
   useEffect(() => {
     if (itemCount > 0) {
-      // Fade in
-      Animated.timing(fadeAnim, {
-        toValue: 1,
-        duration: 300,
-        useNativeDriver: true,
-      }).start();
-      // Animate progress bar
-      Animated.timing(animatedWidth, {
+      // Slide up + fade in with spring
+      Animated.parallel([
+        Animated.spring(translateY, {
+          toValue: 0,
+          tension: 80,
+          friction: 10,
+          useNativeDriver: true,
+        }),
+        Animated.timing(opacity, {
+          toValue: 1,
+          duration: 300,
+          useNativeDriver: true,
+        }),
+      ]).start();
+
+      // Animate progress bar with overshoot
+      Animated.spring(progressAnim, {
         toValue: progress,
-        duration: 600,
+        tension: 60,
+        friction: 8,
         useNativeDriver: false,
       }).start();
+
+      // Trigger button pulse when free delivery is unlocked (once)
+      if (freeDeliveryUnlocked && !hasPulsed) {
+        setHasPulsed(true);
+        // You can add a manual pulse animation here if needed
+      }
     } else {
-      // Fade out
-      Animated.timing(fadeAnim, {
-        toValue: 0,
-        duration: 200,
-        useNativeDriver: true,
-      }).start();
-      animatedWidth.setValue(0);
+      // Fade out and slide down
+      Animated.parallel([
+        Animated.timing(translateY, {
+          toValue: 30,
+          duration: 200,
+          useNativeDriver: true,
+        }),
+        Animated.timing(opacity, {
+          toValue: 0,
+          duration: 200,
+          useNativeDriver: true,
+        }),
+      ]).start();
+      progressAnim.setValue(0);
+      setHasPulsed(false);
     }
   }, [itemCount, totalAmount]);
 
   if (itemCount === 0) return null;
 
+  // Bottom positioning: above the tab bar (tab bar height ~68 + bottom inset)
+  const bottomPosition = insets.bottom + 68;
+
   return (
-    <Animated.View style={[styles.container, { opacity: fadeAnim }]}>
+    <Animated.View
+      style={[
+        styles.container,
+        {
+          opacity,
+          transform: [{ translateY }],
+          bottom: bottomPosition,
+        },
+      ]}
+    >
       <TouchableOpacity
         style={styles.touchable}
         onPress={() => navigation.navigate('Cart')}
         activeOpacity={0.85}
       >
-        {/* Left side – cart summary */}
+        {/* Left: item count & total */}
         <View style={styles.leftSection}>
-          <Text style={styles.itemCount}>{itemCount} {itemCount === 1 ? 'item' : 'items'}</Text>
+          <Text style={styles.itemCount}>
+            {itemCount} {itemCount === 1 ? 'item' : 'items'}
+          </Text>
           <Text style={styles.totalAmount}>Rs. {totalAmount.toFixed(2)}</Text>
         </View>
 
-        {/* Center – progress info */}
+        {/* Center: progress info */}
         <View style={styles.centerSection}>
-          {progress >= 1 ? (
-            <Text style={styles.freeDeliveryText}>🎉 Free Delivery Earned!</Text>
+          {freeDeliveryUnlocked ? (
+            <Text style={styles.freeDeliveryText}>🎉 Free Delivery Unlocked!</Text>
           ) : (
             <Text style={styles.remainingText}>
               Add Rs. {remaining.toFixed(2)} more for free delivery
@@ -81,21 +128,28 @@ export default function CartSummaryBar({ navigation }) {
               style={[
                 styles.progressBarFill,
                 {
-                  width: animatedWidth.interpolate({
+                  width: progressAnim.interpolate({
                     inputRange: [0, 1],
                     outputRange: ['0%', '100%'],
                   }),
-                  backgroundColor: progress >= 1 ? Colors.green : Colors.primary,
+                  backgroundColor: freeDeliveryUnlocked ? Colors.basil : Colors.apricot,
                 },
               ]}
             />
           </View>
         </View>
 
-        {/* Right arrow */}
-        <View style={styles.rightSection}>
-          <Text style={styles.arrow}>→</Text>
-        </View>
+        {/* Right: View Cart button (pulses when unlocked) */}
+        <Animated.View
+          style={[
+            styles.viewCartBtn,
+            freeDeliveryUnlocked && styles.pulseButton, // subtle scale pulse
+          ]}
+        >
+          <TouchableOpacity onPress={() => navigation.navigate('Cart')}>
+            <Text style={styles.viewCartText}>View cart</Text>
+          </TouchableOpacity>
+        </Animated.View>
       </TouchableOpacity>
     </Animated.View>
   );
@@ -104,10 +158,9 @@ export default function CartSummaryBar({ navigation }) {
 const styles = StyleSheet.create({
   container: {
     position: 'absolute',
-    bottom: 70,                     // above the bottom tab bar
     left: 12,
     right: 12,
-    backgroundColor: Colors.white,
+    backgroundColor: Colors.basilDark,     // dark green
     borderRadius: Radius.lg,
     ...Shadows.md,
     zIndex: 20,
@@ -122,33 +175,34 @@ const styles = StyleSheet.create({
     marginRight: 12,
   },
   itemCount: {
-    fontSize: 12,
+    fontSize: 11,
     fontWeight: '600',
-    color: Colors.gray400,
+    color: 'rgba(255,255,255,0.75)',
   },
   totalAmount: {
     fontSize: 16,
     fontWeight: '800',
-    color: Colors.darkest,
+    color: Colors.white,
     marginTop: 2,
   },
   centerSection: {
     flex: 1,
+    marginRight: 12,
   },
   freeDeliveryText: {
-    fontSize: 12,
+    fontSize: 11,
     fontWeight: '600',
-    color: Colors.green,
+    color: Colors.basilLight,
     marginBottom: 4,
   },
   remainingText: {
     fontSize: 11,
-    color: Colors.orangeText,
+    color: 'rgba(255,255,255,0.8)',
     marginBottom: 4,
   },
   progressBarBackground: {
     height: 5,
-    backgroundColor: '#FFD0B5',
+    backgroundColor: 'rgba(255,255,255,0.25)',
     borderRadius: 3,
     overflow: 'hidden',
   },
@@ -156,13 +210,20 @@ const styles = StyleSheet.create({
     height: '100%',
     borderRadius: 3,
   },
-  rightSection: {
-    marginLeft: 8,
-    justifyContent: 'center',
+  viewCartBtn: {
+    backgroundColor: Colors.apricot,
+    paddingVertical: 10,
+    paddingHorizontal: 16,
+    borderRadius: 10,
+    // pulse animation will be added via transform
   },
-  arrow: {
-    fontSize: 20,
-    color: Colors.primary,
-    fontWeight: '700',
+  pulseButton: {
+    // example: a slight scale pulse (you can define a keyframe or use Animated.loop)
+    transform: [{ scale: 1.05 }],   // subtle permanent scale when unlocked
+  },
+  viewCartText: {
+    color: Colors.white,
+    fontWeight: '800',
+    fontSize: 13,
   },
 });

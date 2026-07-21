@@ -1,7 +1,6 @@
-﻿import React from 'react';
-import { View, Text, TouchableOpacity, StyleSheet } from 'react-native';
+﻿import { StyleSheet, Text, TouchableOpacity, View } from 'react-native';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
-import { Colors, Fonts, Shadows } from '../theme';  // your existing theme
+import { Colors, Shadows } from '../theme';
 
 const tabs = [
   { label: 'Home', icon: '🏠', screen: 'Home' },
@@ -11,7 +10,7 @@ const tabs = [
 ];
 
 export default function BottomTabBar({ navigation, activeScreen }) {
-  const insets = useSafeAreaInsets();           // get the bottom safe area
+  const insets = useSafeAreaInsets();
 
   return (
     <View style={[styles.container, { paddingBottom: insets.bottom + 8 }]}>
@@ -24,7 +23,7 @@ export default function BottomTabBar({ navigation, activeScreen }) {
             onPress={() => navigation.navigate(tab.screen)}
             activeOpacity={0.7}
           >
-            <View style={styles.iconContainer}>
+            <View style={[styles.iconContainer, isActive && styles.activeIconContainer]}>
               <Text style={[styles.icon, isActive && styles.activeIcon]}>
                 {tab.icon}
               </Text>
@@ -44,9 +43,9 @@ const styles = StyleSheet.create({
     flexDirection: 'row',
     justifyContent: 'space-around',
     alignItems: 'center',
-    backgroundColor: 'rgba(255,255,255,0.97)',
-    borderTopWidth: 0.5,
-    borderTopColor: Colors.gray200,
+    backgroundColor: Colors.white,
+    borderTopWidth: 1,
+    borderTopColor: Colors.border,
     position: 'absolute',
     bottom: 0,
     left: 0,
@@ -67,19 +66,24 @@ const styles = StyleSheet.create({
     justifyContent: 'center',
     marginBottom: 2,
   },
+  activeIconContainer: {
+    backgroundColor: Colors.basilLight,
+  },
   icon: {
     fontSize: 20,
+    color: Colors.inkMuted,
   },
   activeIcon: {
-    transform: [{ scale: 1.2 }],
+    color: Colors.basilDark,
+    transform: [{ scale: 1.15 }],
   },
   label: {
     fontSize: 10,
-    color: Colors.gray400,
+    color: Colors.inkMuted,
     fontWeight: '500',
   },
   activeLabel: {
-    color: Colors.primary600,
+    color: Colors.basilDark,
     fontWeight: '600',
   },
 });

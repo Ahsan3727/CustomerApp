@@ -1,39 +1,51 @@
-﻿import React, { useState, useEffect, useCallback } from 'react';
+﻿import Constants from 'expo-constants';
+import { useEffect, useRef, useState } from 'react';
 import {
-  View,
-  Text,
+  ActivityIndicator,
+  Animated,
+  Dimensions,
   FlatList,
+  StyleSheet,
+  Text,
   TextInput,
   TouchableOpacity,
-  StyleSheet,
-  ActivityIndicator,
+  View,
 } from 'react-native';
-import Constants from 'expo-constants';
-import api from '../services/api';
-import { useCart } from '../context/CartContext';
-import Card from '../components/Card';
 import BottomTabBar from '../components/BottomTabBar';
-import { Colors as GlobalColors, Fonts, Radius, Shadows } from '../theme';
+import ProductCard from '../components/ProductCard';
+import { useCart } from '../context/CartContext';
+import api from '../services/api';
+import { Colors, Radius, Shadows } from '../theme';
 
-// Warm orange palette (consistent with other screens)
-const Colors = {
-  primary: '#FF7F2A',
-  primaryLight: '#FFF0E5',
-  white: '#FFFFFF',
-  gray400: '#9CA3AF',
-  darkest: '#3E2723',
-  orangeText: '#8B4513',
-  heroBg: '#FF9F43',
-  border: '#FFD0B5',
-  gray600: '#475569',
-};
+const { width } = Dimensions.get('window');
+const numColumns = 2;
+const gap = 12;
+const cardWidth = (width - 32 - (numColumns - 1) * gap) / numColumns;
+
+// Recent search chips (static for demo, could be fetched from storage)
+const RECENT_SEARCHES = ['Apples', 'Milk', 'Bread', 'Eggs', 'Juice'];
 
 export default function SearchScreen({ navigation }) {
   const [query, setQuery] = useState('');
   const [results, setResults] = useState([]);
   const [loading, setLoading] = useState(false);
   const [hasSearched, setHasSearched] = useState(false);
+  const [popularProducts, setPopularProducts] = useState([]);
+  const [isFocused, setIsFocused] = useState(false);
   const { addToCart } = useCart();
+  const fadeAnim = useRef(new Animated.Value(1)).current;
+
+  // Fetch popular products for the initial state
+  const fetchPopular = async () => {
+    try {
+      const { data } = await api.get('/products/popular');
+      setPopularProducts(data.products || []);
+    } catch (e) { console.log(e); }
+  };
+
+  useEffect(() => {
+    fetchPopular();
+  }, []);
 
   // Debounced search – waits 500ms after the user stops typing
   useEffect(() => {
@@ -43,6 +55,7 @@ export default function SearchScreen({ navigation }) {
       } else {
         setResults([]);
         setHasSearched(false);
+        Animated.timing(fadeAnim, { toValue: 1, duration: 200, useNativeDriver: true }).start();
       }
     }, 500);
 
@@ -52,6 +65,8 @@ export default function SearchScreen({ navigation }) {
   const performSearch = async (searchTerm) => {
     setLoading(true);
     setHasSearched(true);
+    // Quick fade transition
+    Animated.timing(fadeAnim, { toValue: 0, duration: 120, useNativeDriver: true }).start();
     try {
       const { data } = await api.get(`/products?search=${searchTerm}`);
       setResults(data.products || []);
@@ -60,6 +75,7 @@ export default function SearchScreen({ navigation }) {
       setResults([]);
     } finally {
       setLoading(false);
+      Animated.timing(fadeAnim, { toValue: 1, duration: 200, useNativeDriver: true }).start();
     }
   };
 
@@ -67,59 +83,90 @@ export default function SearchScreen({ navigation }) {
     setQuery('');
     setResults([]);
     setHasSearched(false);
+    setIsFocused(false);
   };
 
   const handleProductPress = (product) => {
     navigation.navigate('ProductDetail', { product });
   };
 
-  const handleAddToCart = (product) => {
-    addToCart(product);
-    // Optional: show a small toast or feedback
-  };
+  // Render product grid item
+  const renderProductItem = ({ item }) => (
+    <View style={styles.productCardWrapper}>
+      <ProductCard
+        product={item}
+        onPress={() => handleProductPress(item)}
+        onAddToCart={addToCart}
+      />
+    </View>
+  );
 
-  const renderProduct = ({ item }) => (
-    <Card
-      style={styles.productCard}
-      onPress={() => handleProductPress(item)}
-    >
-      <View style={styles.productRow}>
-        <Text style={styles.productEmoji}>{item.emoji || '🛍️'}</Text>
-        <View style={styles.productInfo}>
-          <Text style={styles.productName} numberOfLines={2}>
-            {item.name}
-          </Text>
-          <Text style={styles.productPrice}>
-            Rs. {(item.adminPrice || item.price).toFixed(2)}
-          </Text>
-        </View>
-        <TouchableOpacity
-          style={styles.addButton}
-          onPress={() => handleAddToCart(item)}
-        >
-          <Text style={styles.addButtonText}>+</Text>
-        </TouchableOpacity>
+  // Recent searches chip bar
+  const renderRecentChips = () => (
+    <View style={styles.chipSection}>
+      <Text style={styles.sectionTitle}>Recent searches</Text>
+      <View style={styles.chipRow}>
+        {RECENT_SEARCHES.map((term) => (
+          <TouchableOpacity
+            key={term}
+            style={styles.chip}
+            onPress={() => setQuery(term)}
+            activeOpacity={0.7}
+          >
+            <Text style={styles.chipIcon}>🕒</Text>
+            <Text style={styles.chipLabel}>{term}</Text>
+          </TouchableOpacity>
+        ))}
       </View>
-    </Card>
+    </View>
+  );
+
+  // Popular products grid (initial view)
+  const renderPopular = () => (
+    <View style={styles.popularSection}>
+      <Text style={styles.sectionTitle}>🔥 Popular right now</Text>
+      {popularProducts.length > 0 ? (
+        <FlatList
+          data={popularProducts}
+          keyExtractor={(item) => item._id}
+          numColumns={numColumns}
+          scrollEnabled={false}
+          columnWrapperStyle={styles.columnWrapper}
+          renderItem={({ item }) => (
+            <View style={styles.productCardWrapper}>
+              <ProductCard
+                product={item}
+                onPress={() => handleProductPress(item)}
+                onAddToCart={addToCart}
+              />
+            </View>
+          )}
+        />
+      ) : (
+        <Text style={styles.emptyText}>Loading popular items...</Text>
+      )}
+    </View>
   );
 
   return (
     <View style={styles.container}>
-      {/* Header with search bar */}
+      {/* Header */}
       <View style={styles.header}>
         <TouchableOpacity onPress={() => navigation.goBack()} style={styles.backButton}>
           <Text style={styles.backText}>←</Text>
         </TouchableOpacity>
 
-        <View style={styles.searchInputWrapper}>
+        <View style={[styles.searchInputWrapper, isFocused && styles.searchInputFocused]}>
           <Text style={styles.searchIcon}>🔍</Text>
           <TextInput
             style={styles.searchInput}
-            placeholder="Search products..."
-            placeholderTextColor={Colors.gray400}
+            placeholder="Search atta, milk, eggs…"
+            placeholderTextColor={Colors.inkMuted}
             value={query}
             onChangeText={setQuery}
-            autoFocus={true}
+            onFocus={() => setIsFocused(true)}
+            onBlur={() => setIsFocused(false)}
+            autoFocus={false}
             returnKeyType="search"
           />
           {query.length > 0 && (
@@ -130,34 +177,51 @@ export default function SearchScreen({ navigation }) {
         </View>
       </View>
 
-      {/* Results */}
-      {loading ? (
-        <View style={styles.centered}>
-          <ActivityIndicator size="large" color={Colors.primary} />
-        </View>
-      ) : hasSearched && results.length === 0 ? (
-        <View style={styles.centered}>
-          <Text style={styles.emptyEmoji}>🔍</Text>
-          <Text style={styles.emptyTitle}>No products found</Text>
-          <Text style={styles.emptySub}>Try a different search term</Text>
-        </View>
-      ) : !hasSearched ? (
-        <View style={styles.centered}>
-          <Text style={styles.emptyEmoji}>🛒</Text>
-          <Text style={styles.emptyTitle}>Search for products</Text>
-          <Text style={styles.emptySub}>Type in the box above to find what you need</Text>
-        </View>
-      ) : (
-        <FlatList
-          data={results}
-          keyExtractor={(item) => item._id}
-          renderItem={renderProduct}
-          contentContainerStyle={styles.listContent}
-          keyboardShouldPersistTaps="handled"
-        />
-      )}
+      {/* Main content */}
+      <Animated.View style={{ flex: 1, opacity: fadeAnim }}>
+        {loading ? (
+          <View style={styles.centered}>
+            <ActivityIndicator size="large" color={Colors.apricot} />
+            <Text style={styles.loadingText}>Searching...</Text>
+          </View>
+        ) : hasSearched && results.length === 0 ? (
+          // Empty search result
+          <View style={styles.centered}>
+            <Text style={styles.emptyIcon}>🔍</Text>
+            <Text style={styles.emptyTitle}>No matches found</Text>
+            <Text style={styles.emptySubtitle}>Try a different keyword like “milk” or “bread”.</Text>
+          </View>
+        ) : !hasSearched ? (
+          // Initial state: recent chips + popular grid
+          <FlatList
+            data={[]}
+            renderItem={null}
+            ListHeaderComponent={
+              <>
+                {renderRecentChips()}
+                {renderPopular()}
+              </>
+            }
+            keyExtractor={(item) => item?._id || 'header'}
+            contentContainerStyle={styles.scrollContent}
+            showsVerticalScrollIndicator={false}
+          />
+        ) : (
+          // Search results grid
+          <FlatList
+            data={results}
+            keyExtractor={(item) => item._id}
+            renderItem={renderProductItem}
+            numColumns={numColumns}
+            columnWrapperStyle={styles.columnWrapper}
+            contentContainerStyle={styles.listContent}
+            keyboardShouldPersistTaps="handled"
+            showsVerticalScrollIndicator={false}
+          />
+        )}
+      </Animated.View>
 
-      {/* Bottom Tab Bar (if you want it here; optional, can be removed if not needed) */}
+      {/* Bottom tab bar */}
       <BottomTabBar navigation={navigation} activeScreen="Search" />
     </View>
   );
@@ -166,48 +230,57 @@ export default function SearchScreen({ navigation }) {
 const styles = StyleSheet.create({
   container: {
     flex: 1,
-    backgroundColor: '#FFF6F0',
+    backgroundColor: Colors.linen,
   },
   header: {
     flexDirection: 'row',
     alignItems: 'center',
     paddingTop: Constants.statusBarHeight + 12,
     paddingHorizontal: 12,
-    paddingBottom: 12,
-    backgroundColor: Colors.heroBg,
-    borderBottomLeftRadius: 20,
-    borderBottomRightRadius: 20,
-    ...Shadows.sm,
+    paddingBottom: 14,
+    backgroundColor: Colors.apricot,
+    borderBottomLeftRadius: 24,
+    borderBottomRightRadius: 24,
+    ...Shadows.md,
   },
   backButton: {
-    width: 44,
-    height: 44,
+    width: 40,
+    height: 40,
+    borderRadius: 12,
+    backgroundColor: 'rgba(255,255,255,0.2)',
     justifyContent: 'center',
     alignItems: 'center',
-    marginRight: 8,
+    marginRight: 10,
   },
   backText: {
-    fontSize: 24,
-    color: '#FFFFFF',
-    fontWeight: '600',
+    fontSize: 20,
+    color: Colors.white,
+    fontWeight: '700',
   },
   searchInputWrapper: {
     flex: 1,
     flexDirection: 'row',
     alignItems: 'center',
     backgroundColor: Colors.white,
-    borderRadius: Radius.full,
+    borderRadius: 14,
     paddingHorizontal: 14,
     height: 44,
+    borderWidth: 1.5,
+    borderColor: 'transparent',
+  },
+  searchInputFocused: {
+    borderColor: Colors.apricotDark,
   },
   searchIcon: {
     fontSize: 16,
     marginRight: 8,
+    color: Colors.inkMuted,
   },
   searchInput: {
     flex: 1,
-    fontSize: 15,
-    color: Colors.darkest,
+    fontSize: 14,
+    color: Colors.ink,
+    fontWeight: '500',
     paddingVertical: 0,
   },
   clearButton: {
@@ -215,7 +288,7 @@ const styles = StyleSheet.create({
   },
   clearText: {
     fontSize: 18,
-    color: Colors.gray400,
+    color: Colors.inkMuted,
     fontWeight: '600',
   },
   centered: {
@@ -224,70 +297,90 @@ const styles = StyleSheet.create({
     alignItems: 'center',
     paddingHorizontal: 30,
   },
-  emptyEmoji: {
-    fontSize: 60,
+  loadingText: {
+    marginTop: 12,
+    fontSize: 14,
+    color: Colors.inkMuted,
+  },
+  emptyIcon: {
+    fontSize: 56,
     marginBottom: 16,
-    opacity: 0.7,
+    color: Colors.border,
   },
   emptyTitle: {
     fontSize: 18,
     fontWeight: '700',
-    color: Colors.darkest,
+    color: Colors.ink,
     marginBottom: 8,
   },
-  emptySub: {
+  emptySubtitle: {
     fontSize: 14,
-    color: Colors.gray600,
+    color: Colors.inkMuted,
     textAlign: 'center',
+    lineHeight: 20,
+  },
+
+  // Chip section
+  chipSection: {
+    marginTop: 20,
+    paddingHorizontal: 16,
+  },
+  sectionTitle: {
+    fontSize: 16,
+    fontWeight: '700',
+    color: Colors.ink,
+    marginBottom: 12,
+  },
+  chipRow: {
+    flexDirection: 'row',
+    flexWrap: 'wrap',
+    gap: 8,
+  },
+  chip: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    backgroundColor: Colors.white,
+    borderWidth: 1,
+    borderColor: Colors.border,
+    borderRadius: Radius.full,
+    paddingVertical: 8,
+    paddingHorizontal: 14,
+  },
+  chipIcon: {
+    fontSize: 13,
+    marginRight: 6,
+    color: Colors.inkMuted,
+  },
+  chipLabel: {
+    fontSize: 13,
+    fontWeight: '600',
+    color: Colors.ink,
+  },
+
+  // Popular grid
+  popularSection: {
+    marginTop: 24,
+    paddingHorizontal: 16,
+  },
+  columnWrapper: {
+    justifyContent: 'space-between',
+  },
+  productCardWrapper: {
+    width: cardWidth,
+    marginBottom: 12,
   },
   listContent: {
     paddingHorizontal: 16,
     paddingTop: 12,
-    paddingBottom: 100,   // space for tab bar
+    paddingBottom: 100,
   },
-  productCard: {
-    marginBottom: 10,
-    padding: 12,
+  scrollContent: {
+    paddingBottom: 100,
   },
-  productRow: {
-    flexDirection: 'row',
-    alignItems: 'center',
-  },
-  productEmoji: {
-    fontSize: 36,
-    width: 48,
+  emptyText: {
+    fontSize: 13,
+    color: Colors.inkMuted,
     textAlign: 'center',
-  },
-  productInfo: {
-    flex: 1,
-    marginLeft: 12,
-  },
-  productName: {
-    fontWeight: '600',
-    fontSize: 14,
-    color: Colors.darkest,
-    marginBottom: 4,
-  },
-  productPrice: {
-    fontSize: 15,
-    fontWeight: '700',
-    color: Colors.primary,
-  },
-  addButton: {
-    width: 32,
-    height: 32,
-    borderRadius: 16,
-    backgroundColor: Colors.primary,
-    justifyContent: 'center',
-    alignItems: 'center',
-    shadowColor: Colors.primary,
-    shadowOpacity: 0.3,
-    shadowRadius: 4,
-    elevation: 3,
-  },
-  addButtonText: {
-    color: '#FFFFFF',
-    fontSize: 18,
-    fontWeight: '600',
+    marginTop: 20,
   },
 });

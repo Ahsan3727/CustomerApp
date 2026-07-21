@@ -1,3 +1,5 @@
+// MapViewWrapper.js
+
 import { Platform } from 'react-native';
 
 // Native: use react-native-maps
@@ -7,7 +9,7 @@ if (Platform.OS !== 'web') {
   NativeMarker = require('react-native-maps').Marker;
 }
 
-import React, { useEffect, useState } from 'react';
+import { useEffect, useState } from 'react';
 import { View } from 'react-native';
 
 export default function MapViewWrapper({ style, region, children, mapRef, ...rest }) {

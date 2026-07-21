@@ -1,5 +1,4 @@
-﻿import React from 'react';
-import { View, StyleSheet, TouchableOpacity } from 'react-native';
+﻿import { StyleSheet, TouchableOpacity, View } from 'react-native';
 import { Colors, Radius, Shadows } from '../theme';
 
 export default function Card({ children, style, onPress, accent }) {
@@ -13,5 +12,13 @@ export default function Card({ children, style, onPress, accent }) {
 }
 
 const styles = StyleSheet.create({
-  card: { backgroundColor: Colors.white, borderRadius: Radius.lg, padding: 16, borderWidth: 1, borderColor: Colors.gray200, ...Shadows.sm, marginBottom: 10 },
+  card: {
+    backgroundColor: Colors.white,
+    borderRadius: Radius.lg,
+    padding: 16,
+    borderWidth: 1,
+    borderColor: Colors.border,
+    ...Shadows.sm,
+    marginBottom: 10,
+  },
 });

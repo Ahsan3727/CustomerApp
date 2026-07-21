@@ -1,5 +1,6 @@
-﻿import React from 'react';
-import { View, Text, TouchableOpacity, StyleSheet } from 'react-native';
+﻿// NoInternetBanner.js
+
+import { StyleSheet, Text, TouchableOpacity, View } from 'react-native';
 
 export default function NoInternetBanner({ onRetry }) {
   return (

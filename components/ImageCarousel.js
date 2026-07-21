@@ -1,25 +1,15 @@
-import React, { useState, useEffect, useRef } from 'react';
-import {
-  View,
-  Image,
-  StyleSheet,
-  ScrollView,
-  Dimensions,
-  TouchableOpacity,
-  NativeSyntheticEvent,
-  NativeScrollEvent,
-} from 'react-native';
+import { useEffect, useRef, useState } from 'react';
+import { Dimensions, Image, ScrollView, StyleSheet, TouchableOpacity, View } from 'react-native';
 import { Colors, Radius } from '../theme';
 
 const { width } = Dimensions.get('window');
-const AUTO_SCROLL_INTERVAL = 3000; // 3 seconds
+const AUTO_SCROLL_INTERVAL = 3000;
 
 export default function ImageCarousel({ banners, onBannerPress }) {
   const [activeIndex, setActiveIndex] = useState(0);
   const scrollRef = useRef(null);
   const intervalRef = useRef(null);
 
-  // Auto‑scroll
   const startAutoScroll = () => {
     stopAutoScroll();
     intervalRef.current = setInterval(() => {
@@ -77,7 +67,6 @@ export default function ImageCarousel({ banners, onBannerPress }) {
         ))}
       </ScrollView>
 
-      {/* Pagination dots */}
       {banners.length > 1 && (
         <View style={styles.dotContainer}>
           {banners.map((_, index) => (
@@ -101,10 +90,10 @@ const styles = StyleSheet.create({
     marginHorizontal: 16,
     borderRadius: Radius.lg,
     overflow: 'hidden',
-    backgroundColor: '#FFF0E5',
+    backgroundColor: Colors.basilLight,   // subtle tint in case image hasn't loaded
   },
   bannerImage: {
-    width: width - 32,   // full width minus margins
+    width: width - 32,
     height: 150,
   },
   dotContainer: {
@@ -117,16 +106,16 @@ const styles = StyleSheet.create({
     right: 0,
   },
   dot: {
-    width: 8,
-    height: 8,
-    borderRadius: 4,
-    backgroundColor: 'rgba(255,255,255,0.5)',
+    width: 6,
+    height: 6,
+    borderRadius: 3,
+    backgroundColor: 'rgba(0,0,0,0.15)',
     marginHorizontal: 4,
   },
   activeDot: {
-    backgroundColor: Colors.primary,
-    width: 10,
-    height: 10,
-    borderRadius: 5,
+    backgroundColor: Colors.apricot,
+    width: 16,
+    height: 6,
+    borderRadius: 3,
   },
 });
