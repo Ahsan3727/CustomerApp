@@ -125,6 +125,12 @@ function buildMapHTML(riderLat, riderLng, dropoffLat, dropoffLng) {
 export default function TrackOrderScreen({ navigation, route }) {
   const order = route?.params?.order;
   const [riderLocation, setRiderLocation] = useState(null);
+  // The map sits inside the page's ScrollView. Without this, a finger-drag
+  // meant to pan the Leaflet map gets grabbed by the outer ScrollView
+  // instead, so the whole page scrolls rather than the map moving. Toggling
+  // this off for the duration of a touch that starts on the map — and back
+  // on the moment it ends — lets the map own that gesture instead.
+  const [scrollEnabled, setScrollEnabled] = useState(true);
   const socketRef = useRef(null);
   const webViewRef = useRef(null);
 
@@ -198,7 +204,11 @@ export default function TrackOrderScreen({ navigation, route }) {
   const stepIndex = statusSteps.findIndex(s => s.key === (order?.status || 'pending'));
 
   return (
-    <ScrollView style={styles.container} contentContainerStyle={styles.scrollContent}>
+    <ScrollView
+      style={styles.container}
+      contentContainerStyle={styles.scrollContent}
+      scrollEnabled={scrollEnabled}
+    >
       <View style={styles.header}>
         <TouchableOpacity onPress={() => navigation.goBack()} style={styles.backButton}>
           <Text style={styles.backText}>←</Text>
@@ -213,7 +223,15 @@ export default function TrackOrderScreen({ navigation, route }) {
       </View>
 
       {/* ---- Map (always WebView) ---- */}
-      <View style={styles.realMapContainer}>
+      <View
+        style={styles.realMapContainer}
+        onStartShouldSetResponderCapture={() => {
+          setScrollEnabled(false);
+          return false;
+        }}
+        onTouchEnd={() => setScrollEnabled(true)}
+        onTouchCancel={() => setScrollEnabled(true)}
+      >
         <WebView
           ref={webViewRef}
           source={{ html: buildMapHTML(mapLat, mapLng, dropoffLat, dropoffLng) }}
@@ -222,6 +240,7 @@ export default function TrackOrderScreen({ navigation, route }) {
           domStorageEnabled={true}
           startInLoadingState={false}
           scrollEnabled={false}
+          nestedScrollEnabled={true}
         />
       </View>
 

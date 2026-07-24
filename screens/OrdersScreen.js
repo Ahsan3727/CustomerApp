@@ -18,6 +18,24 @@ import { Colors, Radius, Shadows } from '../theme';
 
 const CANCELLABLE_STATUSES = ['pending', 'confirmed', 'packing', 'ready_for_pickup'];
 
+// Left-edge accent color per status, matching the same semantic families
+// used by OrderStatusBadge (amber = pending, apricot = in progress,
+// basil green = done, chili red = cancelled) so the card border and the
+// badge always agree with each other at a glance.
+const STATUS_ACCENT = {
+  pending: Colors.amber,
+  confirmed: Colors.apricot,
+  packing: Colors.apricot,
+  ready_for_pickup: Colors.apricot,
+  picked: Colors.apricot,
+  onway: Colors.apricot,
+  out_for_delivery: Colors.apricot,
+  delivered: Colors.basil,
+  completed: Colors.basil,
+  cancelled: Colors.chili,
+};
+const getStatusAccent = (status) => STATUS_ACCENT[status] || Colors.gray300;
+
 export default function OrdersScreen({ navigation }) {
   const [orders, setOrders] = useState([]);
   const [loading, setLoading] = useState(true);
@@ -61,7 +79,8 @@ export default function OrdersScreen({ navigation }) {
     return (
       <Card
         style={styles.orderCard}
-        onPress={() => navigation.navigate('OrderDetail', { order: item })}
+        accent={getStatusAccent(item.status)}
+        onPress={() => navigation.navigate('TrackOrder', { order: item })}
       >
         {/* Top row: Order ID & date + status badge */}
         <View style={styles.topRow}>
@@ -79,41 +98,48 @@ export default function OrdersScreen({ navigation }) {
           <Text style={styles.itemCount}>{itemCount} items</Text>
         )}
 
-        {/* Bottom row: Total and actions */}
-        <View style={styles.bottomRow}>
+        <View style={styles.divider} />
+
+        {/* Total */}
+        <View style={styles.totalRow}>
+          <Text style={styles.totalLabel}>Total</Text>
           <Text style={styles.orderTotal}>{total}</Text>
-          <View style={styles.actions}>
-            {item.status === 'out_for_delivery' && (
-              <TouchableOpacity
-                style={styles.trackBtn}
-                onPress={() => navigation.navigate('TrackOrder', { order: item })}
-              >
-                <Text style={styles.trackBtnText}>Track</Text>
-              </TouchableOpacity>
-            )}
-            {item.status === 'delivered' && !item.rating && (
-              <TouchableOpacity
-                style={styles.trackBtn}
-                onPress={() => navigation.navigate('Rate', { order: item })}
-              >
-                <Text style={styles.trackBtnText}>Rate</Text>
-              </TouchableOpacity>
-            )}
-            {CANCELLABLE_STATUSES.includes(item.status) && (
-              <TouchableOpacity
-                style={styles.reorderBtn}
-                onPress={() => navigation.navigate('CancelOrder', { order: item })}
-              >
-                <Text style={styles.reorderBtnText}>Cancel</Text>
-              </TouchableOpacity>
-            )}
+        </View>
+
+        {/* Actions — wraps to a second line instead of overflowing on
+            narrow screens when several buttons are shown at once
+            (e.g. a delivered, unrated order shows Track + Rate + Reorder). */}
+        <View style={styles.actions}>
+          <TouchableOpacity
+            style={styles.trackBtn}
+            onPress={() => navigation.navigate('TrackOrder', { order: item })}
+          >
+            <Text style={styles.trackBtnText}>🚚 Track Order</Text>
+          </TouchableOpacity>
+          {item.status === 'delivered' && !item.rating && (
             <TouchableOpacity
-              style={styles.reorderBtn}
+              style={styles.neutralBtn}
+              onPress={() => navigation.navigate('Rate', { order: item })}
+            >
+              <Text style={styles.neutralBtnText}>⭐ Rate</Text>
+            </TouchableOpacity>
+          )}
+          {CANCELLABLE_STATUSES.includes(item.status) && (
+            <TouchableOpacity
+              style={styles.dangerBtn}
+              onPress={() => navigation.navigate('CancelOrder', { order: item })}
+            >
+              <Text style={styles.dangerBtnText}>Cancel</Text>
+            </TouchableOpacity>
+          )}
+          {item.status === 'delivered' && (
+            <TouchableOpacity
+              style={styles.neutralBtn}
               onPress={() => handleReorder(item)}
             >
-              <Text style={styles.reorderBtnText}>Reorder</Text>
+              <Text style={styles.neutralBtnText}>↻ Reorder</Text>
             </TouchableOpacity>
-          </View>
+          )}
         </View>
       </Card>
     );
@@ -228,43 +254,72 @@ const styles = StyleSheet.create({
     color: Colors.inkMuted,
     marginBottom: 10,
   },
-  bottomRow: {
+  divider: {
+    height: 1,
+    backgroundColor: Colors.border,
+    marginBottom: 10,
+  },
+  totalRow: {
     flexDirection: 'row',
     justifyContent: 'space-between',
     alignItems: 'center',
+    marginBottom: 12,
+  },
+  totalLabel: {
+    fontSize: 12,
+    fontWeight: '600',
+    color: Colors.inkMuted,
   },
   orderTotal: {
-    fontSize: 16,
+    fontSize: 17,
     fontWeight: '800',
     color: Colors.ink,
   },
   actions: {
     flexDirection: 'row',
+    flexWrap: 'wrap',
     gap: 8,
   },
+  // Primary action — the one thing every order card can always do.
   trackBtn: {
     backgroundColor: Colors.apricot,
-    paddingVertical: 7,
+    paddingVertical: 9,
     paddingHorizontal: 14,
     borderRadius: 10,
   },
   trackBtnText: {
     color: Colors.white,
     fontWeight: '700',
-    fontSize: 12,
+    fontSize: 12.5,
   },
-  reorderBtn: {
+  // Neutral, non-destructive secondary actions (Rate, Reorder).
+  neutralBtn: {
     backgroundColor: Colors.white,
     borderWidth: 1,
     borderColor: Colors.border,
-    paddingVertical: 7,
+    paddingVertical: 9,
     paddingHorizontal: 14,
     borderRadius: 10,
   },
-  reorderBtnText: {
+  neutralBtnText: {
     color: Colors.ink,
     fontWeight: '700',
-    fontSize: 12,
+    fontSize: 12.5,
+  },
+  // Destructive action (Cancel) — visually distinct from Rate/Reorder so
+  // it's never mistaken for a harmless secondary button.
+  dangerBtn: {
+    backgroundColor: Colors.chiliLight,
+    borderWidth: 1,
+    borderColor: '#F3C9C9',
+    paddingVertical: 9,
+    paddingHorizontal: 14,
+    borderRadius: 10,
+  },
+  dangerBtnText: {
+    color: Colors.chili,
+    fontWeight: '700',
+    fontSize: 12.5,
   },
   emptyContainer: {
     flex: 1,
