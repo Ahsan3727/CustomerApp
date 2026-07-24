@@ -11,6 +11,8 @@ import useLocationTracking from './hooks/useLocationTracking';
 // ---------- Screens that never use native maps (always safe) ----------
 import AddAddressScreen from './screens/AddAddressScreen';
 import AddressListScreen from './screens/AddressListScreen';
+import BundleDetailScreen from './screens/BundleDetailScreen';
+import BundleListScreen from './screens/BundleListScreen';
 import CancelOrderScreen from './screens/CancelOrderScreen';
 import CartScreen from './screens/CartScreen';
 import ChatScreen from './screens/ChatScreen';
@@ -76,6 +78,8 @@ function AppNavigator() {
             <Stack.Screen name="Search" component={SearchScreen} />
             <Stack.Screen name="ProductDetail" component={ProductDetailScreen} />
             <Stack.Screen name="ProductList" component={ProductListScreen} />
+            <Stack.Screen name="BundleList" component={BundleListScreen} />
+            <Stack.Screen name="BundleDetail" component={BundleDetailScreen} />
             <Stack.Screen name="OrderMapPicker" component={OrderMapPicker} />
             <Stack.Screen name="AddressList" component={AddressListScreen} />
             <Stack.Screen name="AddAddress" component={AddAddressScreen} />

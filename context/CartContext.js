@@ -19,6 +19,32 @@ export const CartProvider = ({ children }) => {
     });
   };
 
+  // Adding a whole bundle just adds each of its products individually,
+  // reusing the same merge-by-_id logic as a normal "+" tap — this keeps
+  // checkout/stock-decrement/rider-picking exactly as they already work,
+  // since a bundle is just several products ordered together. The only
+  // difference: price is the bundle's allocated per-unit price (e.g. Rs 50
+  // for 0.6kg onion → Rs 83.3/kg), not the product's regular catalog price,
+  // and each line is tagged with bundleName so Cart/Checkout can show
+  // "From: Rs 300 Sabzi Hub" instead of it looking like unrelated items.
+  // Known limitation: if the same product is already in the cart from a
+  // manual add, it merges into one row and keeps whichever price was there
+  // first — fine for v1, but worth knowing about.
+  const addBundleToCart = (bundle) => {
+    (bundle.items || []).forEach((item) => {
+      const product = item.product;
+      if (!product || !product._id) return;
+      const unitPrice = item.quantity > 0 ? item.allocatedPrice / item.quantity : item.allocatedPrice;
+      addToCart({
+        ...product,
+        price: unitPrice,
+        adminPrice: unitPrice,
+        quantity: item.quantity,
+        bundleName: bundle.name,
+      });
+    });
+  };
+
   const removeFromCart = (productId) => {
     setCart(prevCart => prevCart.filter(item => item._id !== productId));
   };
@@ -43,6 +69,7 @@ export const CartProvider = ({ children }) => {
     <CartContext.Provider value={{
       cart,
       addToCart,
+      addBundleToCart,
       removeFromCart,
       clearCart,
       changeCartQuantity,

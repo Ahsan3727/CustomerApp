@@ -38,6 +38,7 @@ export default function CartScreen({ navigation }) {
     const cartItems = cart.map(item => ({
       product: item._id,
       quantity: item.quantity,
+      bundleName: item.bundleName || undefined,
     }));
     navigation.navigate('OrderMapPicker', {
       cartItems,
@@ -115,6 +116,9 @@ export default function CartScreen({ navigation }) {
 
               <View style={styles.itemInfo}>
                 <Text style={styles.itemName}>{item.name}</Text>
+                {item.bundleName ? (
+                  <Text style={styles.itemBundleTag}>From: {item.bundleName}</Text>
+                ) : null}
                 {item.unit ? <Text style={styles.itemUnit}>{item.unit}</Text> : null}
                 <View style={styles.stepper}>
                   <TouchableOpacity
@@ -308,6 +312,12 @@ const styles = StyleSheet.create({
     fontSize: 11,
     color: Colors.inkMuted,
     marginBottom: 8,
+  },
+  itemBundleTag: {
+    fontSize: 10.5,
+    fontWeight: '700',
+    color: Colors.apricotDark,
+    marginBottom: 4,
   },
   stepper: {
     flexDirection: 'row',

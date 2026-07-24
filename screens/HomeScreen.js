@@ -411,6 +411,57 @@ const trendStyles = StyleSheet.create({
   addBtnText: { color: Colors.white, fontWeight: '700', fontSize: 14 },
 });
 
+const BUNDLE_TYPE_ICON = {
+  sabzi: '🥬', fruit: '🍎', nashta: '🍳', dawat: '🎉', recipe: '🍲', custom: '🎯',
+};
+
+// ============== Bundle Card ==============
+function BundleCard({ bundle, onPress }) {
+  const itemNames = (bundle.items || []).map((i) => i.label || i.product?.name).filter(Boolean).join(' · ');
+  return (
+    <TouchableOpacity style={bundleStyles.card} onPress={onPress} activeOpacity={0.85}>
+      <View style={bundleStyles.imageBox}>
+        {bundle.image ? (
+          <Image source={{ uri: getThumbnail(bundle.image, 180) }} style={bundleStyles.image} resizeMode="cover" />
+        ) : (
+          <Text style={bundleStyles.emoji}>{BUNDLE_TYPE_ICON[bundle.type] || '🎯'}</Text>
+        )}
+      </View>
+      <Text style={bundleStyles.name} numberOfLines={1}>{bundle.name}</Text>
+      <Text style={bundleStyles.items} numberOfLines={1}>{itemNames}</Text>
+      <Text style={bundleStyles.price}>Rs. {bundle.targetPrice}</Text>
+    </TouchableOpacity>
+  );
+}
+
+const bundleStyles = StyleSheet.create({
+  card: {
+    backgroundColor: Colors.white,
+    borderRadius: 16,
+    padding: 12,
+    marginRight: 14,
+    width: 150,
+    borderWidth: 1,
+    borderColor: Colors.border,
+    ...Shadows.sm,
+  },
+  imageBox: {
+    width: '100%',
+    height: 80,
+    borderRadius: 12,
+    justifyContent: 'center',
+    alignItems: 'center',
+    marginBottom: 8,
+    overflow: 'hidden',
+    backgroundColor: Colors.apricotLight,
+  },
+  image: { width: '100%', height: '100%' },
+  emoji: { fontSize: 34 },
+  name: { fontWeight: '700', fontSize: 13, color: Colors.ink, marginBottom: 2 },
+  items: { fontSize: 10.5, color: Colors.inkMuted, marginBottom: 4 },
+  price: { fontWeight: '800', fontSize: 14, color: Colors.apricotDark },
+});
+
 // ========================
 //        MAIN SCREEN
 // ========================
@@ -418,6 +469,7 @@ export default function HomeScreen({ navigation }) {
   const [products, setProducts] = useState([]);
   const [popularProducts, setPopularProducts] = useState([]);
   const [categories, setCategories] = useState([]);
+  const [bundles, setBundles] = useState([]);
   const [loading, setLoading] = useState(true);
   const [refreshing, setRefreshing] = useState(false);
 
@@ -448,14 +500,29 @@ export default function HomeScreen({ navigation }) {
       const { data } = await api.get('/categories/global');
       const mapped = (data.categories || []).map((cat) => {
         const style = CATEGORY_STYLES[cat.name?.toLowerCase()] || DEFAULT_CATEGORY_STYLE;
-        return { label: cat.name, ...style };
+        return {
+          id: cat._id,
+          label: cat.name,
+          type: cat.type || 'normal',
+          image: cat.image || null,
+          icon: cat.icon || style.icon,
+          bg: style.bg,
+          ink: style.ink,
+        };
       });
       setCategories(mapped);
     } catch (e) { console.log(e); }
   };
 
+  const fetchBundles = async () => {
+    try {
+      const { data } = await api.get('/bundles');
+      setBundles(data.bundles || []);
+    } catch (e) { console.log(e); }
+  };
+
   useEffect(() => {
-    Promise.all([fetchProducts(), fetchPopularProducts(), fetchCategories()]).finally(() => {
+    Promise.all([fetchProducts(), fetchPopularProducts(), fetchCategories(), fetchBundles()]).finally(() => {
       setLoading(false);
       Animated.timing(contentOpacity, { toValue: 1, duration: 500, useNativeDriver: true }).start();
     });
@@ -463,7 +530,7 @@ export default function HomeScreen({ navigation }) {
 
   const onRefresh = useCallback(async () => {
     setRefreshing(true);
-    await Promise.all([fetchProducts(), fetchPopularProducts(), fetchCategories()]);
+    await Promise.all([fetchProducts(), fetchPopularProducts(), fetchCategories(), fetchBundles()]);
     setRefreshing(false);
   }, []);
 
@@ -541,18 +608,49 @@ export default function HomeScreen({ navigation }) {
           <ScrollView horizontal showsHorizontalScrollIndicator={false} contentContainerStyle={styles.categoryRow}>
             {categories.map((cat) => (
               <TouchableOpacity
-                key={cat.label}
+                key={cat.id || cat.label}
                 style={styles.chip}
-                onPress={() => navigation.navigate('ProductList', { category: cat.label })}
+                onPress={() => {
+                  if (cat.type === 'bundle') {
+                    navigation.navigate('BundleList');
+                  } else {
+                    navigation.navigate('ProductList', { category: cat.label });
+                  }
+                }}
                 activeOpacity={0.7}
               >
                 <View style={[styles.chipIcon, { backgroundColor: cat.bg }]}>
-                  <Text style={[styles.chipEmoji, { color: cat.ink }]}>{cat.icon}</Text>
+                  {cat.image ? (
+                    <Image source={{ uri: getThumbnail(cat.image, 120) }} style={styles.chipImage} resizeMode="cover" />
+                  ) : (
+                    <Text style={[styles.chipEmoji, { color: cat.ink }]}>{cat.icon}</Text>
+                  )}
                 </View>
                 <Text style={styles.chipText}>{cat.label}</Text>
               </TouchableOpacity>
             ))}
           </ScrollView>
+
+          {/* ---- Budget Bundles ---- */}
+          {bundles.length > 0 && (
+            <>
+              <View style={styles.sectionHeader}>
+                <Text style={styles.sectionTitle}>🎯 Budget Bundles</Text>
+                <TouchableOpacity onPress={() => navigation.navigate('BundleList')}>
+                  <Text style={styles.seeAll}>See all →</Text>
+                </TouchableOpacity>
+              </View>
+              <ScrollView horizontal showsHorizontalScrollIndicator={false} style={{ marginBottom: 20, paddingLeft: 16 }}>
+                {bundles.map((bundle) => (
+                  <BundleCard
+                    key={bundle._id}
+                    bundle={bundle}
+                    onPress={() => navigation.navigate('BundleDetail', { bundleId: bundle._id })}
+                  />
+                ))}
+              </ScrollView>
+            </>
+          )}
 
           {/* ---- Trending Now ---- */}
           <View style={styles.sectionHeader}>
@@ -780,10 +878,15 @@ const styles = StyleSheet.create({
     justifyContent: 'center',
     alignItems: 'center',
     marginBottom: 6,
+    overflow: 'hidden',
     ...Shadows.sm,
   },
   chipEmoji: {
     fontSize: 24,
+  },
+  chipImage: {
+    width: '100%',
+    height: '100%',
   },
   chipText: {
     fontSize: 11,
