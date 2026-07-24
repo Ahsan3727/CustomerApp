@@ -2,6 +2,7 @@
 import { useEffect, useState } from 'react';
 import {
   ActivityIndicator,
+  Alert,
   FlatList,
   StyleSheet,
   Text,
@@ -11,12 +12,16 @@ import {
 import BottomTabBar from '../components/BottomTabBar';
 import Card from '../components/Card';
 import OrderStatusBadge from '../components/OrderStatusBadge';
+import { useCart } from '../context/CartContext';
 import api from '../services/api';
 import { Colors, Radius, Shadows } from '../theme';
+
+const CANCELLABLE_STATUSES = ['pending', 'confirmed', 'packing', 'ready_for_pickup'];
 
 export default function OrdersScreen({ navigation }) {
   const [orders, setOrders] = useState([]);
   const [loading, setLoading] = useState(true);
+  const { addToCart } = useCart();
 
   useEffect(() => {
     api.get('/orders')
@@ -24,6 +29,15 @@ export default function OrdersScreen({ navigation }) {
       .catch(console.error)
       .finally(() => setLoading(false));
   }, []);
+
+  const handleReorder = (item) => {
+    (item.items || []).forEach((it) => {
+      if (it.product && typeof it.product === 'object') {
+        addToCart({ ...it.product, quantity: it.quantity || 1 });
+      }
+    });
+    navigation.navigate('Cart');
+  };
 
   const renderOrder = ({ item }) => {
     const orderId = item._id?.slice(-6).toUpperCase() || 'XXXXXX';
@@ -47,7 +61,7 @@ export default function OrdersScreen({ navigation }) {
     return (
       <Card
         style={styles.orderCard}
-        onPress={() => navigation.navigate('TrackOrder', { order: item })}
+        onPress={() => navigation.navigate('OrderDetail', { order: item })}
       >
         {/* Top row: Order ID & date + status badge */}
         <View style={styles.topRow}>
@@ -77,11 +91,25 @@ export default function OrdersScreen({ navigation }) {
                 <Text style={styles.trackBtnText}>Track</Text>
               </TouchableOpacity>
             )}
+            {item.status === 'delivered' && !item.rating && (
+              <TouchableOpacity
+                style={styles.trackBtn}
+                onPress={() => navigation.navigate('Rate', { order: item })}
+              >
+                <Text style={styles.trackBtnText}>Rate</Text>
+              </TouchableOpacity>
+            )}
+            {CANCELLABLE_STATUSES.includes(item.status) && (
+              <TouchableOpacity
+                style={styles.reorderBtn}
+                onPress={() => navigation.navigate('CancelOrder', { order: item })}
+              >
+                <Text style={styles.reorderBtnText}>Cancel</Text>
+              </TouchableOpacity>
+            )}
             <TouchableOpacity
               style={styles.reorderBtn}
-              onPress={() => {
-                // Add reorder logic if needed
-              }}
+              onPress={() => handleReorder(item)}
             >
               <Text style={styles.reorderBtnText}>Reorder</Text>
             </TouchableOpacity>

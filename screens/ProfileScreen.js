@@ -106,6 +106,26 @@ export default function ProfileScreen({ navigation }) {
           />
         </Card>
 
+        {/* Menu */}
+        <Card style={styles.menuCard}>
+          {[
+            { label: '📍 My Addresses', screen: 'AddressList' },
+            { label: '📦 My Orders', screen: 'Orders' },
+            { label: '👛 Wallet', screen: 'Wallet' },
+            { label: '❓ Help & Support', screen: 'Help' },
+            { label: '⚙️ Settings', screen: 'Settings' },
+          ].map((item) => (
+            <AppButton
+              key={item.screen}
+              title={item.label}
+              type="ghost"
+              onPress={() => navigation.navigate(item.screen)}
+              style={styles.menuItem}
+              textStyle={styles.menuItemText}
+            />
+          ))}
+        </Card>
+
         {/* Save Button */}
         <AppButton
           title="Save"
@@ -195,6 +215,25 @@ const styles = StyleSheet.create({
   saveButton: {
     marginHorizontal: 16,
     marginTop: 20,
+  },
+  menuCard: {
+    marginHorizontal: 16,
+    marginTop: 16,
+    paddingVertical: 4,
+    borderWidth: 1,
+    borderColor: Colors.border,
+    borderRadius: Radius.lg,
+    backgroundColor: Colors.white,
+    ...Shadows.sm,
+  },
+  menuItem: {
+    justifyContent: 'flex-start',
+    borderWidth: 0,
+    paddingHorizontal: 8,
+  },
+  menuItemText: {
+    color: Colors.ink,
+    textAlign: 'left',
   },
   logoutButton: {
     marginHorizontal: 16,

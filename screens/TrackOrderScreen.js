@@ -3,19 +3,26 @@ import Constants from 'expo-constants';
 import { useCallback, useEffect, useRef, useState } from 'react';
 import {
   Alert,
-  Platform,
+  Linking,
   ScrollView,
   StyleSheet,
   Text,
   TouchableOpacity,
-  View,
+  View
 } from 'react-native';
 import { WebView } from 'react-native-webview';
 import { io } from 'socket.io-client';
 import AppButton from '../components/AppButton';
 import Card from '../components/Card';
-import api from '../services/api';
+import api, { BASE_URL } from '../services/api';
 import { Fonts, Radius, Shadows } from '../theme';
+
+// Socket connection must point at the same backend as every other API call.
+// Derived from BASE_URL (services/api.js) so dev/prod never diverge again —
+// this used to be hardcoded to http://localhost:5000 / http://10.0.2.2:5000,
+// which silently failed in the shipped app and quietly degraded to the
+// 10-second REST poll below instead of throwing a visible error.
+const SOCKET_URL = BASE_URL.replace(/\/api\/?$/, 'https://groxo-0zy1.onrender.com/api');
 
 // Always use WebView map – no native maps needed
 const MapView = null;
@@ -152,7 +159,7 @@ export default function TrackOrderScreen({ navigation, route }) {
       const customerData = await AsyncStorage.getItem('customerData');
       if (!token || !customerData) return;
       const customer = JSON.parse(customerData);
-      const socket = io(Platform.OS === 'web' ? 'http://localhost:5000' : 'http://10.0.2.2:5000', {
+      const socket = io(SOCKET_URL, {
         query: { userId: customer._id },
         auth: { token },
       });
@@ -253,8 +260,24 @@ export default function TrackOrderScreen({ navigation, route }) {
               <Text style={styles.driverRating}>⭐ {order.rider?.rating || '4.8'}</Text>
               <Text style={styles.driverNote}>Your delivery partner</Text>
             </View>
-            <TouchableOpacity style={styles.driverAction}><Text>📞</Text></TouchableOpacity>
-            <TouchableOpacity style={styles.driverAction}><Text>💬</Text></TouchableOpacity>
+            <TouchableOpacity
+              style={styles.driverAction}
+              onPress={() => {
+                if (order.rider?.phone) Linking.openURL(`tel:${order.rider.phone}`);
+              }}
+            >
+              <Text>📞</Text>
+            </TouchableOpacity>
+            <TouchableOpacity
+              style={styles.driverAction}
+              onPress={() => navigation.navigate('Chat', {
+                orderId: order._id,
+                otherUserId: order.rider?._id,
+                otherUserName: order.rider?.name,
+              })}
+            >
+              <Text>💬</Text>
+            </TouchableOpacity>
           </View>
         </Card>
       )}

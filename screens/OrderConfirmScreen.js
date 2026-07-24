@@ -10,7 +10,7 @@ export default function OrderConfirmScreen({ route, navigation }) {
       <Text style={styles.orderId}>Order ID: {order?._id?.slice(-8) || 'N/A'}</Text>
       <Text style={styles.eta}>Estimated delivery: 30 mins</Text>
       <TouchableOpacity style={styles.trackBtn} onPress={() => navigation.navigate('TrackOrder', { order })}><Text style={styles.trackBtnText}>Track Order</Text></TouchableOpacity>
-      <TouchableOpacity style={styles.homeBtn} onPress={() => navigation.navigate('HomeTab')}><Text style={styles.homeBtnText}>Back to Shopping</Text></TouchableOpacity>
+      <TouchableOpacity style={styles.homeBtn} onPress={() => navigation.navigate('Home')}><Text style={styles.homeBtnText}>Back to Shopping</Text></TouchableOpacity>
     </View>
   );
 }

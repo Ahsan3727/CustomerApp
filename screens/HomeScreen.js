@@ -22,15 +22,21 @@ import { Colors, Fonts, Radius, Shadows } from '../theme';
 const { width } = Dimensions.get('window');
 const numColumns = 3;
 
-// Category icons – colours remain as before (they are category‑specific, not brand)
-const categories = [
-  { label: 'Fruits', icon: '🍎', bg: '#FDECEA', ink: '#C0392B' },
-  { label: 'Vegetables', icon: '🥬', bg: '#EAF6EF', ink: '#1B7A4F' },
-  { label: 'Dairy', icon: '🥛', bg: '#EAF2FB', ink: '#2563EB' },
-  { label: 'Bakery', icon: '🍞', bg: '#FBF0DE', ink: '#B8860B' },
-  { label: 'Beverages', icon: '🥤', bg: '#FDEEE1', ink: '#C96A26' },
-  { label: 'Snacks', icon: '🍪', bg: '#FBEFE3', ink: '#A0522D' },
-];
+// Category visual styling, keyed by name (lowercased). The backend only
+// stores category names (Category model has no icon/color fields), so this
+// stays as a client-side lookup — but the actual LIST of categories now
+// comes from GET /categories/global instead of being hardcoded here, so
+// adding/renaming/removing a category on the admin side shows up without
+// an app rebuild. Unrecognized names fall back to a generic style.
+const CATEGORY_STYLES = {
+  fruits: { icon: '🍎', bg: '#FDECEA', ink: '#C0392B' },
+  vegetables: { icon: '🥬', bg: '#EAF6EF', ink: '#1B7A4F' },
+  dairy: { icon: '🥛', bg: '#EAF2FB', ink: '#2563EB' },
+  bakery: { icon: '🍞', bg: '#FBF0DE', ink: '#B8860B' },
+  beverages: { icon: '🥤', bg: '#FDEEE1', ink: '#C96A26' },
+  snacks: { icon: '🍪', bg: '#FBEFE3', ink: '#A0522D' },
+};
+const DEFAULT_CATEGORY_STYLE = { icon: '🛒', bg: '#F1F5F9', ink: '#475569' };
 
 // Promo slides – all using different orange / warm tones (green removed)
 const PROMOS = [
@@ -411,6 +417,7 @@ const trendStyles = StyleSheet.create({
 export default function HomeScreen({ navigation }) {
   const [products, setProducts] = useState([]);
   const [popularProducts, setPopularProducts] = useState([]);
+  const [categories, setCategories] = useState([]);
   const [loading, setLoading] = useState(true);
   const [refreshing, setRefreshing] = useState(false);
 
@@ -436,8 +443,19 @@ export default function HomeScreen({ navigation }) {
     } catch (e) { console.log(e); }
   };
 
+  const fetchCategories = async () => {
+    try {
+      const { data } = await api.get('/categories/global');
+      const mapped = (data.categories || []).map((cat) => {
+        const style = CATEGORY_STYLES[cat.name?.toLowerCase()] || DEFAULT_CATEGORY_STYLE;
+        return { label: cat.name, ...style };
+      });
+      setCategories(mapped);
+    } catch (e) { console.log(e); }
+  };
+
   useEffect(() => {
-    Promise.all([fetchProducts(), fetchPopularProducts()]).finally(() => {
+    Promise.all([fetchProducts(), fetchPopularProducts(), fetchCategories()]).finally(() => {
       setLoading(false);
       Animated.timing(contentOpacity, { toValue: 1, duration: 500, useNativeDriver: true }).start();
     });
@@ -445,7 +463,7 @@ export default function HomeScreen({ navigation }) {
 
   const onRefresh = useCallback(async () => {
     setRefreshing(true);
-    await Promise.all([fetchProducts(), fetchPopularProducts()]);
+    await Promise.all([fetchProducts(), fetchPopularProducts(), fetchCategories()]);
     setRefreshing(false);
   }, []);
 

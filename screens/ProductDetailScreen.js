@@ -33,9 +33,11 @@ export default function ProductDetailScreen({ navigation, route }) {
   }
 
   const displayPrice = product.adminPrice || product.price;
-  const hasMrp = product.mrp && product.mrp > displayPrice;
-  const discount = hasMrp ? Math.round((1 - displayPrice / product.mrp) * 100) : 0;
+  const hasMrp = product.retailPrice && product.retailPrice > displayPrice;
+  const discount = hasMrp ? Math.round((1 - displayPrice / product.retailPrice) * 100) : 0;
   const total = (displayPrice * quantity).toFixed(2);
+  const stock = product.stock ?? Infinity;
+  const outOfStock = stock <= 0;
 
   const handleAddToCart = () => {
     setAdding(true);
@@ -112,7 +114,7 @@ export default function ProductDetailScreen({ navigation, route }) {
           <View style={styles.priceSection}>
             <View style={styles.priceMain}>
               <Text style={styles.price}>Rs. {displayPrice}</Text>
-              {hasMrp && <Text style={styles.mrp}>Rs. {product.mrp}</Text>}
+              {hasMrp && <Text style={styles.mrp}>Rs. {product.retailPrice}</Text>}
             </View>
             {hasMrp && (
               <View style={styles.discountPill}>
@@ -123,19 +125,22 @@ export default function ProductDetailScreen({ navigation, route }) {
 
           {/* Quantity label */}
           <Text style={styles.qtyLabel}>Quantity</Text>
+          {outOfStock && <Text style={styles.outOfStockText}>Out of stock</Text>}
 
           {/* Stepper */}
           <View style={styles.stepper}>
             <TouchableOpacity
               style={styles.stepperBtn}
               onPress={() => setQuantity(prev => Math.max(1, prev - 1))}
+              disabled={outOfStock}
             >
               <Text style={styles.stepperBtnText}>−</Text>
             </TouchableOpacity>
             <Text style={styles.stepperValue}>{quantity}</Text>
             <TouchableOpacity
               style={styles.stepperBtn}
-              onPress={() => setQuantity(prev => prev + 1)}
+              onPress={() => setQuantity(prev => Math.min(stock, prev + 1))}
+              disabled={outOfStock || quantity >= stock}
             >
               <Text style={styles.stepperBtnText}>+</Text>
             </TouchableOpacity>
@@ -149,9 +154,10 @@ export default function ProductDetailScreen({ navigation, route }) {
 
           {/* Add to Cart button */}
           <AppButton
-            title={adding ? 'Adding...' : `Add to cart · Rs. ${total}`}
+            title={outOfStock ? 'Out of stock' : adding ? 'Adding...' : `Add to cart · Rs. ${total}`}
             onPress={handleAddToCart}
             loading={adding}
+            disabled={outOfStock}
             type="primary"
             size="lg"
             style={styles.addToCartBtn}
@@ -344,6 +350,11 @@ const styles = StyleSheet.create({
     fontWeight: '800',
     color: Colors.ink,
     fontFamily: 'Sora-Bold',
+  },
+  outOfStockText: {
+    color: Colors.chili,
+    fontWeight: '700',
+    marginBottom: 8,
   },
   mrp: {
     fontSize: 16,

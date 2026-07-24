@@ -12,6 +12,7 @@ import {
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
 import { WebView } from 'react-native-webview';
 import AppButton from '../components/AppButton';
+import { useCart } from '../context/CartContext';
 import api from '../services/api';
 
 // Always use WebView map – no native maps needed
@@ -93,6 +94,7 @@ const mapHTML = (lat, lng) => `
 
 export default function OrderMapPicker({ navigation, route }) {
   const { cartItems, apiFunc } = route.params;
+  const { clearCart } = useCart();
   const insets = useSafeAreaInsets();
 
   const [location, setLocation] = useState(null);
@@ -161,7 +163,7 @@ export default function OrderMapPicker({ navigation, route }) {
     // Allow order even without location (landmark only)
     setLoading(true);
     try {
-      await apiFunc({
+      const { data: order } = await apiFunc({
         items: cartItems,
         deliveryAddress: {
           lat: location?.latitude || 0,
@@ -176,9 +178,8 @@ export default function OrderMapPicker({ navigation, route }) {
         await api.put('/auth/location', { lat: location.latitude, lng: location.longitude });
       }
 
-      Alert.alert('Order Placed', 'Your order has been placed successfully!', [
-        { text: 'OK', onPress: () => navigation.navigate('Orders') },
-      ]);
+      clearCart();
+      navigation.replace('OrderConfirm', { order });
     } catch (error) {
       console.error('Order error:', error.response?.data);
       Alert.alert('Error', error.response?.data?.message || 'Failed to place order');

@@ -9,9 +9,7 @@ const getBaseUrl = () => {
   return 'https://groxo-0zy1.onrender.com/api';
 };
 
-const BASE_URL = getBaseUrl();
-
-console.log('CustomerApp API Base URL:', BASE_URL);
+export const BASE_URL = getBaseUrl();
 
 const api = axios.create({
   baseURL: BASE_URL,

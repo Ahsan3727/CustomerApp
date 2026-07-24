@@ -8,9 +8,9 @@ export default function OrderDetailScreen({ route }) {
       <Text style={styles.title}>Order #{order._id}</Text>
       <Text>Status: {order.status}</Text>
       <Text style={styles.section}>Items:</Text>
-      {order.products?.map((p, i) => <Text key={i}>- {p.product?.name || p.product} x {p.qty}</Text>)}
-      <Text>Total: ₹{order.total}</Text>
-      <Text>Payment: {order.paymentMethod}</Text>
+      {order.items?.map((it, i) => <Text key={i}>- {it.product?.name || it.product} x {it.quantity}</Text>)}
+      <Text>Total: ₹{order.payment?.amount?.toFixed?.(2) ?? order.payment?.amount}</Text>
+      <Text>Payment: {order.payment?.method}</Text>
     </View>
   );
 }

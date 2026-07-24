@@ -24,10 +24,7 @@ export default function CartScreen({ navigation }) {
     (sum, item) => sum + (item.adminPrice || item.price) * item.quantity,
     0
   );
-  const bagFee = 0.25;
-  const serviceFee = 5.25;
-  const deliveryFee = totalAmount > 500 ? 0 : 50;
-  const grandTotal = totalAmount + bagFee + serviceFee + deliveryFee;
+  const grandTotal = totalAmount;
 
   const placeOrderApiCall = async (orderData) => {
     return api.post('/orders', orderData);
@@ -164,20 +161,6 @@ export default function CartScreen({ navigation }) {
           <View style={styles.summaryRow}>
             <Text style={styles.summaryLabel}>Subtotal ({cartTotalItems()} items)</Text>
             <Text style={styles.summaryValue}>Rs. {totalAmount.toFixed(2)}</Text>
-          </View>
-          <View style={styles.summaryRow}>
-            <Text style={styles.summaryLabel}>Bag fee</Text>
-            <Text style={styles.summaryValue}>Rs. {bagFee.toFixed(2)}</Text>
-          </View>
-          <View style={styles.summaryRow}>
-            <Text style={styles.summaryLabel}>Service fee</Text>
-            <Text style={styles.summaryValue}>Rs. {serviceFee.toFixed(2)}</Text>
-          </View>
-          <View style={styles.summaryRow}>
-            <Text style={styles.summaryLabel}>Delivery</Text>
-            <Text style={[styles.summaryValue, deliveryFee === 0 && { color: Colors.basil }]}>
-              {deliveryFee === 0 ? 'FREE' : `Rs. ${deliveryFee.toFixed(2)}`}
-            </Text>
           </View>
           <View style={styles.divider} />
           <View style={styles.summaryRow}>
